@@ -1,1 +1,47 @@
-.DS_store
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js dependencies (recursively ignore from all subdirectories)
+**/node_modules/
+node_modules/
+
+# Java/Maven/Gradle build outputs (recursively ignore from all subdirectories)
+**/target/
+target/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+**/logs/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.DS_Store

@@ -1,0 +1,5132 @@
+openapi: 3.0.3
+info:
+  title: FranchiseHub REST API
+  description: |
+    # FranchiseHub REST API Documentation
+    
+    A comprehensive franchise management platform API that connects franchise businesses with potential partners.
+    
+    ## Features
+    - **Dual User Roles**: Business owners and partners with role-based access control
+    - **Franchise Management**: Complete CRUD operations for franchise listings
+    - **Application Workflow**: End-to-end application submission and review process
+    - **Payment Processing**: Secure payment handling for fees and settlements
+    - **Partnership Management**: Complete partnership lifecycle management
+    
+    ## Authentication
+    This API uses JWT (JSON Web Token) based authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Base URL
+    - **Development**: `http://localhost:8080/api/v1`
+    - **Production**: `https://api.franchisehub.com/v1`
+    
+    ## Rate Limiting
+    - **Authenticated requests**: 1000 requests per hour
+    - **Unauthenticated requests**: 100 requests per hour
+    
+    ## Error Handling
+    The API uses conventional HTTP response codes and returns error details in JSON format.
+    
+  version: 1.0.0
+  contact:
+    name: FranchiseHub API Support
+    email: api-support@franchisehub.com
+    url: https://docs.franchisehub.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://franchisehub.com/terms
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development server
+  - url: https://api.franchisehub.com/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Users
+    description: User profile and account management
+  - name: Franchises
+    description: Franchise listings and management
+  - name: Applications
+    description: Franchise application workflow
+  - name: Payments
+    description: Payment processing and transactions
+  - name: Partnerships
+    description: Partnership lifecycle management
+  - name: Analytics
+    description: Business intelligence and reporting
+  - name: Admin
+    description: Administrative operations
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginCredentials'
+            examples:
+              business_user:
+                summary: Business User Login
+                value:
+                  email: "business@demo.com"
+                  password: "password123"
+                  rememberMe: true
+              partner_user:
+                summary: Partner User Login
+                value:
+                  email: "partner@demo.com"
+                  password: "password123"
+                  rememberMe: false
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                success:
+                  summary: Successful login
+                  value:
+                    user:
+                      id: "demo-business-user"
+                      email: "business@demo.com"
+                      firstName: "Demo"
+                      lastName: "Business"
+                      role: "BUSINESS"
+                      company: "Demo Business Corp"
+                      isActive: true
+                    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    expiresIn: 86400
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterData'
+            examples:
+              business_registration:
+                summary: Business Owner Registration
+                value:
+                  email: "newbusiness@example.com"
+                  password: "securePassword123"
+                  confirmPassword: "securePassword123"
+                  firstName: "John"
+                  lastName: "Doe"
+                  role: "BUSINESS"
+                  phone: "+1-555-0123"
+                  company: "Doe Enterprises"
+                  agreeToTerms: true
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Get a new JWT token using refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Valid refresh token
+              required:
+                - refreshToken
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: New JWT access token
+                  expiresIn:
+                    type: integer
+                    description: Token expiration time in seconds
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current session and JWT token
+      operationId: logoutUser
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logout successful"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # User Management Endpoints
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      description: Retrieve the authenticated user's profile information
+      operationId: getCurrentUserProfile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      description: Update the authenticated user's profile information
+      operationId: updateUserProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdateData'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/change-password:
+    post:
+      tags:
+        - Users
+      summary: Change user password
+      description: Change the authenticated user's password
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeData'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password changed successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Franchise Management Endpoints
+  /franchises:
+    get:
+      tags:
+        - Franchises
+      summary: Get all franchises
+      description: Retrieve a paginated list of franchise opportunities
+      operationId: getFranchises
+      security: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: category
+          in: query
+          description: Filter by franchise category
+          required: false
+          schema:
+            $ref: '#/components/schemas/FranchiseCategory'
+        - name: minInvestment
+          in: query
+          description: Minimum investment amount filter
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: maxInvestment
+          in: query
+          description: Maximum investment amount filter
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: states
+          in: query
+          description: Filter by available states (comma-separated)
+          required: false
+          schema:
+            type: string
+            example: "Delhi,Mumbai,Bangalore"
+        - name: keywords
+          in: query
+          description: Search keywords
+          required: false
+          schema:
+            type: string
+            example: "chai coffee food"
+        - name: sortBy
+          in: query
+          description: Sort field
+          required: false
+          schema:
+            type: string
+            enum: [name, investment, rating, newest]
+            default: "newest"
+        - name: sortOrder
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+      responses:
+        '200':
+          description: Franchises retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Franchise'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+                  filters:
+                    type: object
+                    description: Applied filters summary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    post:
+      tags:
+        - Franchises
+      summary: Create new franchise
+      description: Create a new franchise listing (Business owners only)
+      operationId: createFranchise
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FranchiseCreateData'
+      responses:
+        '201':
+          description: Franchise created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Franchise'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /franchises/{franchiseId}:
+    get:
+      tags:
+        - Franchises
+      summary: Get franchise by ID
+      description: Retrieve detailed information about a specific franchise
+      operationId: getFranchiseById
+      security: []
+      parameters:
+        - name: franchiseId
+          in: path
+          required: true
+          description: Franchise ID
+          schema:
+            type: string
+            example: "franchise-001"
+      responses:
+        '200':
+          description: Franchise retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Franchise'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+    put:
+      tags:
+        - Franchises
+      summary: Update franchise
+      description: Update franchise information (Business owners only, own franchises)
+      operationId: updateFranchise
+      parameters:
+        - name: franchiseId
+          in: path
+          required: true
+          description: Franchise ID
+          schema:
+            type: string
+            example: "franchise-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FranchiseCreateData'
+      responses:
+        '200':
+          description: Franchise updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Franchise'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Franchises
+      summary: Delete franchise
+      description: Delete a franchise listing (Business owners only, own franchises)
+      operationId: deleteFranchise
+      parameters:
+        - name: franchiseId
+          in: path
+          required: true
+          description: Franchise ID
+          schema:
+            type: string
+            example: "franchise-001"
+      responses:
+        '204':
+          description: Franchise deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Application Management Endpoints
+  /applications:
+    get:
+      tags:
+        - Applications
+      summary: Get applications
+      description: Retrieve applications based on user role (business owners see applications for their franchises, partners see their own applications)
+      operationId: getApplications
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by application status
+          required: false
+          schema:
+            $ref: '#/components/schemas/ApplicationStatus'
+        - name: franchiseId
+          in: query
+          description: Filter by franchise ID (business owners only)
+          required: false
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          description: Sort field
+          required: false
+          schema:
+            type: string
+            enum: [submittedAt, status, franchiseName]
+            default: "submittedAt"
+        - name: sortOrder
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: "desc"
+      responses:
+        '200':
+          description: Applications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FranchiseApplication'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Applications
+      summary: Submit franchise application
+      description: Submit a new franchise application (Partners only)
+      operationId: submitApplication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreateData'
+      responses:
+        '201':
+          description: Application submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FranchiseApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /applications/{applicationId}:
+    get:
+      tags:
+        - Applications
+      summary: Get application by ID
+      description: Retrieve detailed application information
+      operationId: getApplicationById
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+      responses:
+        '200':
+          description: Application retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FranchiseApplication'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Applications
+      summary: Update application
+      description: Update application information (Partners only, own applications, DRAFT status only)
+      operationId: updateApplication
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationCreateData'
+      responses:
+        '200':
+          description: Application updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FranchiseApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /applications/{applicationId}/review:
+    post:
+      tags:
+        - Applications
+      summary: Review application
+      description: Review and approve/reject an application (Business owners only)
+      operationId: reviewApplication
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplicationReviewData'
+      responses:
+        '200':
+          description: Application reviewed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FranchiseApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /applications/{applicationId}/documents:
+    post:
+      tags:
+        - Applications
+      summary: Upload application document
+      description: Upload a document for an application
+      operationId: uploadApplicationDocument
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Document file to upload
+                type:
+                  $ref: '#/components/schemas/DocumentType'
+                isRequired:
+                  type: boolean
+                  description: Whether this document is required
+                  default: false
+              required:
+                - file
+                - type
+      responses:
+        '201':
+          description: Document uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationDocument'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    get:
+      tags:
+        - Applications
+      summary: Get application documents
+      description: Retrieve all documents for an application
+      operationId: getApplicationDocuments
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+      responses:
+        '200':
+          description: Application documents retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApplicationDocument'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /applications/{applicationId}/documents/{documentId}:
+    get:
+      tags:
+        - Applications
+      summary: Download application document
+      description: Download a specific application document
+      operationId: downloadApplicationDocument
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+        - name: documentId
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+            example: "doc-001"
+      responses:
+        '200':
+          description: Document file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Applications
+      summary: Delete application document
+      description: Delete a specific application document
+      operationId: deleteApplicationDocument
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+        - name: documentId
+          in: path
+          required: true
+          description: Document ID
+          schema:
+            type: string
+            example: "doc-001"
+      responses:
+        '204':
+          description: Document deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /applications/{applicationId}/agreement:
+    get:
+      tags:
+        - Applications
+      summary: Download partnership agreement
+      description: Download the partnership agreement for an approved application
+      operationId: downloadPartnershipAgreement
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: Application ID
+          schema:
+            type: string
+            example: "app-001"
+      responses:
+        '200':
+          description: Partnership agreement PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Notification Management Endpoints
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      description: Retrieve notifications for the current user
+      operationId: getUserNotifications
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by notification status
+          required: false
+          schema:
+            type: string
+            enum: [READ, UNREAD]
+        - name: type
+          in: query
+          description: Filter by notification type
+          required: false
+          schema:
+            type: string
+            enum: [APPLICATION_UPDATE, PAYMENT_REQUEST, PARTNERSHIP_UPDATE, SYSTEM_ALERT]
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+                  unreadCount:
+                    type: integer
+                    description: Total unread notifications count
+                    example: 5
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notifications/{notificationId}/read:
+    put:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      description: Mark a specific notification as read
+      operationId: markNotificationAsRead
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          description: Notification ID
+          schema:
+            type: string
+            example: "notif-001"
+      responses:
+        '200':
+          description: Notification marked as read successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /notifications/mark-all-read:
+    put:
+      tags:
+        - Notifications
+      summary: Mark all notifications as read
+      description: Mark all notifications for the current user as read
+      operationId: markAllNotificationsAsRead
+      responses:
+        '200':
+          description: All notifications marked as read successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markedCount:
+                    type: integer
+                    description: Number of notifications marked as read
+                    example: 12
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Bulk Operations Endpoints
+  /franchises/bulk-update:
+    put:
+      tags:
+        - Franchises
+      summary: Bulk update franchises
+      description: Update multiple franchises at once (Business owners only)
+      operationId: bulkUpdateFranchises
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                franchiseIds:
+                  type: array
+                  items:
+                    type: string
+                  description: List of franchise IDs to update
+                  example: ["franchise-001", "franchise-002"]
+                updates:
+                  type: object
+                  properties:
+                    isActive:
+                      type: boolean
+                      description: Active status
+                    isFeatured:
+                      type: boolean
+                      description: Featured status
+                    category:
+                      $ref: '#/components/schemas/FranchiseCategory'
+                  description: Fields to update
+              required:
+                - franchiseIds
+                - updates
+      responses:
+        '200':
+          description: Franchises updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updatedCount:
+                    type: integer
+                    description: Number of franchises updated
+                    example: 2
+                  franchises:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Franchise'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /applications/bulk-review:
+    put:
+      tags:
+        - Applications
+      summary: Bulk review applications
+      description: Review multiple applications at once (Business owners only)
+      operationId: bulkReviewApplications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                applicationIds:
+                  type: array
+                  items:
+                    type: string
+                  description: List of application IDs to review
+                  example: ["app-001", "app-002"]
+                reviewData:
+                  type: object
+                  properties:
+                    status:
+                      $ref: '#/components/schemas/ApplicationStatus'
+                    reviewNotes:
+                      type: string
+                      description: Review notes
+                      example: "Bulk approval for qualified candidates"
+                  required:
+                    - status
+              required:
+                - applicationIds
+                - reviewData
+      responses:
+        '200':
+          description: Applications reviewed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviewedCount:
+                    type: integer
+                    description: Number of applications reviewed
+                    example: 2
+                  applications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FranchiseApplication'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # Payment Processing Endpoints
+  /payments/transactions:
+    get:
+      tags:
+        - Payments
+      summary: Get payment transactions
+      description: Retrieve payment transactions based on user role and filters
+      operationId: getPaymentTransactions
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by payment status
+          required: false
+          schema:
+            $ref: '#/components/schemas/PaymentStatus'
+        - name: franchiseId
+          in: query
+          description: Filter by franchise ID
+          required: false
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          description: Filter transactions from date
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          description: Filter transactions to date
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: minAmount
+          in: query
+          description: Minimum transaction amount
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: maxAmount
+          in: query
+          description: Maximum transaction amount
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        '200':
+          description: Payment transactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentTransaction'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /payments/process:
+    post:
+      tags:
+        - Payments
+      summary: Process payment
+      description: Process a payment for application fees or franchise payments
+      operationId: processPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentProcessData'
+      responses:
+        '201':
+          description: Payment processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentTransaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          description: Payment required - insufficient funds or payment failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /payments/transactions/{transactionId}:
+    get:
+      tags:
+        - Payments
+      summary: Get payment transaction by ID
+      description: Retrieve detailed payment transaction information
+      operationId: getPaymentTransactionById
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          description: Payment transaction ID
+          schema:
+            type: string
+            example: "txn-001"
+      responses:
+        '200':
+          description: Payment transaction retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentTransaction'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payments/requests:
+    get:
+      tags:
+        - Payments
+      summary: Get payment requests
+      description: Retrieve payment requests (business owners can see all, partners see their own)
+      operationId: getPaymentRequests
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by payment request status
+          required: false
+          schema:
+            $ref: '#/components/schemas/PaymentRequestStatus'
+        - name: franchiseId
+          in: query
+          description: Filter by franchise ID
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment requests retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentRequest'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Payments
+      summary: Create payment request
+      description: Create a new payment request (Business owners only)
+      operationId: createPaymentRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequestCreateData'
+      responses:
+        '201':
+          description: Payment request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /payments/requests/{requestId}/settle:
+    post:
+      tags:
+        - Payments
+      summary: Settle payment request
+      description: Process payment for a payment request (Partners only)
+      operationId: settlePaymentRequest
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          description: Payment request ID
+          schema:
+            type: string
+            example: "req-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentSettlementData'
+      responses:
+        '200':
+          description: Payment request settled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentRequest:
+                    $ref: '#/components/schemas/PaymentRequest'
+                  transaction:
+                    $ref: '#/components/schemas/PaymentTransaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Partnership Management Endpoints
+  /partnerships:
+    get:
+      tags:
+        - Partnerships
+      summary: Get partnerships
+      description: Retrieve partnerships based on user role (business owners see their franchise partnerships, partners see their own)
+      operationId: getPartnerships
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by partnership status
+          required: false
+          schema:
+            $ref: '#/components/schemas/PartnershipStatus'
+        - name: franchiseId
+          in: query
+          description: Filter by franchise ID
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Partnerships retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Partnership'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /partnerships/{partnershipId}:
+    get:
+      tags:
+        - Partnerships
+      summary: Get partnership by ID
+      description: Retrieve detailed partnership information
+      operationId: getPartnershipById
+      parameters:
+        - name: partnershipId
+          in: path
+          required: true
+          description: Partnership ID
+          schema:
+            type: string
+            example: "partnership-001"
+      responses:
+        '200':
+          description: Partnership retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Partnership'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Partnerships
+      summary: Update partnership
+      description: Update partnership information (Business owners and partners can update specific fields)
+      operationId: updatePartnership
+      parameters:
+        - name: partnershipId
+          in: path
+          required: true
+          description: Partnership ID
+          schema:
+            type: string
+            example: "partnership-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnershipUpdateData'
+      responses:
+        '200':
+          description: Partnership updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Partnership'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /partnerships/{partnershipId}/deactivate:
+    post:
+      tags:
+        - Partnerships
+      summary: Deactivate partnership
+      description: Deactivate an active partnership (Business owners only)
+      operationId: deactivatePartnership
+      parameters:
+        - name: partnershipId
+          in: path
+          required: true
+          description: Partnership ID
+          schema:
+            type: string
+            example: "partnership-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnershipDeactivationData'
+      responses:
+        '200':
+          description: Partnership deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  partnership:
+                    $ref: '#/components/schemas/Partnership'
+                  deactivation:
+                    $ref: '#/components/schemas/PartnershipDeactivation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /partnerships/{partnershipId}/reactivate:
+    post:
+      tags:
+        - Partnerships
+      summary: Reactivate partnership
+      description: Reactivate a deactivated partnership (Business owners only)
+      operationId: reactivatePartnership
+      parameters:
+        - name: partnershipId
+          in: path
+          required: true
+          description: Partnership ID
+          schema:
+            type: string
+            example: "partnership-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reactivationNotes:
+                  type: string
+                  description: Notes for reactivation
+                  example: "Issues resolved, partnership reactivated"
+              required:
+                - reactivationNotes
+      responses:
+        '200':
+          description: Partnership reactivated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Partnership'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /partnerships/{partnershipId}/performance:
+    get:
+      tags:
+        - Partnerships
+      summary: Get partnership performance metrics
+      description: Retrieve performance metrics for a partnership
+      operationId: getPartnershipPerformance
+      parameters:
+        - name: partnershipId
+          in: path
+          required: true
+          description: Partnership ID
+          schema:
+            type: string
+            example: "partnership-001"
+        - name: period
+          in: query
+          description: Performance period
+          required: false
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+            default: "monthly"
+        - name: startDate
+          in: query
+          description: Start date for performance metrics
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: End date for performance metrics
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Partnership performance metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnershipPerformance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Analytics and Reporting Endpoints
+  /analytics/dashboard:
+    get:
+      tags:
+        - Analytics
+      summary: Get dashboard analytics
+      description: Retrieve dashboard statistics and KPIs based on user role
+      operationId: getDashboardAnalytics
+      parameters:
+        - name: period
+          in: query
+          description: Analytics period
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly, quarterly, yearly]
+            default: "monthly"
+        - name: franchiseId
+          in: query
+          description: Filter by specific franchise (business owners only)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dashboard analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardAnalytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/revenue:
+    get:
+      tags:
+        - Analytics
+      summary: Get revenue analytics
+      description: Retrieve revenue analytics and trends
+      operationId: getRevenueAnalytics
+      parameters:
+        - name: period
+          in: query
+          description: Revenue period
+          required: false
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+            default: "monthly"
+        - name: startDate
+          in: query
+          description: Start date for revenue analytics
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: End date for revenue analytics
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: franchiseId
+          in: query
+          description: Filter by specific franchise
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Revenue analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueAnalytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/applications:
+    get:
+      tags:
+        - Analytics
+      summary: Get application analytics
+      description: Retrieve application conversion metrics and trends
+      operationId: getApplicationAnalytics
+      parameters:
+        - name: period
+          in: query
+          description: Analytics period
+          required: false
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+            default: "monthly"
+        - name: franchiseId
+          in: query
+          description: Filter by specific franchise
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Application analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationAnalytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/partnerships:
+    get:
+      tags:
+        - Analytics
+      summary: Get partnership analytics
+      description: Retrieve partnership performance reports and metrics
+      operationId: getPartnershipAnalytics
+      parameters:
+        - name: period
+          in: query
+          description: Analytics period
+          required: false
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+            default: "monthly"
+        - name: franchiseId
+          in: query
+          description: Filter by specific franchise
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Partnership analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnershipAnalytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/reports:
+    post:
+      tags:
+        - Analytics
+      summary: Generate custom report
+      description: Generate a custom analytics report with specified parameters
+      operationId: generateCustomReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomReportRequest'
+      responses:
+        '202':
+          description: Report generation initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId:
+                    type: string
+                    description: Report generation ID
+                    example: "report-001"
+                  status:
+                    type: string
+                    description: Report generation status
+                    example: "PROCESSING"
+                  estimatedCompletion:
+                    type: string
+                    format: date-time
+                    description: Estimated completion time
+                    example: "2024-03-25T10:35:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/reports/{reportId}:
+    get:
+      tags:
+        - Analytics
+      summary: Get custom report
+      description: Retrieve a generated custom report
+      operationId: getCustomReport
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          description: Report ID
+          schema:
+            type: string
+            example: "report-001"
+      responses:
+        '200':
+          description: Custom report retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomReport'
+        '202':
+          description: Report still processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "PROCESSING"
+                  progress:
+                    type: integer
+                    example: 75
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Administrative Operations Endpoints
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users (Admin only)
+      description: Retrieve all users with filtering and pagination (Admin only)
+      operationId: getAllUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: role
+          in: query
+          description: Filter by user role
+          required: false
+          schema:
+            $ref: '#/components/schemas/UserRole'
+        - name: isActive
+          in: query
+          description: Filter by active status
+          required: false
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          description: Search by name or email
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/users/{userId}/role:
+    put:
+      tags:
+        - Admin
+      summary: Update user role (Admin only)
+      description: Update a user's role (Admin only)
+      operationId: updateUserRole
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            example: "user-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  $ref: '#/components/schemas/UserRole'
+                reason:
+                  type: string
+                  description: Reason for role change
+                  example: "Promoted to business owner"
+              required:
+                - role
+                - reason
+      responses:
+        '200':
+          description: User role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/users/{userId}/status:
+    put:
+      tags:
+        - Admin
+      summary: Update user status (Admin only)
+      description: Activate or deactivate a user account (Admin only)
+      operationId: updateUserStatus
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            example: "user-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isActive:
+                  type: boolean
+                  description: User active status
+                  example: false
+                reason:
+                  type: string
+                  description: Reason for status change
+                  example: "Account suspended for policy violation"
+              required:
+                - isActive
+                - reason
+      responses:
+        '200':
+          description: User status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/system/config:
+    get:
+      tags:
+        - Admin
+      summary: Get system configuration (Admin only)
+      description: Retrieve system configuration settings (Admin only)
+      operationId: getSystemConfig
+      responses:
+        '200':
+          description: System configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    put:
+      tags:
+        - Admin
+      summary: Update system configuration (Admin only)
+      description: Update system configuration settings (Admin only)
+      operationId: updateSystemConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SystemConfigUpdate'
+      responses:
+        '200':
+          description: System configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/audit-logs:
+    get:
+      tags:
+        - Admin
+      summary: Get audit logs (Admin only)
+      description: Retrieve system audit logs (Admin only)
+      operationId: getAuditLogs
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: action
+          in: query
+          description: Filter by action type
+          required: false
+          schema:
+            type: string
+            enum: [CREATE, UPDATE, DELETE, LOGIN, LOGOUT, PAYMENT, APPROVAL]
+        - name: userId
+          in: query
+          description: Filter by user ID
+          required: false
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          description: Filter logs from date
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          description: Filter logs to date
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Audit logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditLog'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/data/export:
+    post:
+      tags:
+        - Admin
+      summary: Export data (Admin only)
+      description: Export system data for backup or analysis (Admin only)
+      operationId: exportData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataExportRequest'
+      responses:
+        '202':
+          description: Data export initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  exportId:
+                    type: string
+                    description: Export job ID
+                    example: "export-001"
+                  status:
+                    type: string
+                    description: Export status
+                    example: "PROCESSING"
+                  estimatedCompletion:
+                    type: string
+                    format: date-time
+                    description: Estimated completion time
+                    example: "2024-03-25T10:35:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/analytics/platform:
+    get:
+      tags:
+        - Admin
+      summary: Get platform-wide analytics (Admin only)
+      description: Retrieve comprehensive platform analytics (Admin only)
+      operationId: getPlatformAnalytics
+      parameters:
+        - name: period
+          in: query
+          description: Analytics period
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly, quarterly, yearly]
+            default: "monthly"
+        - name: startDate
+          in: query
+          description: Start date for analytics
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: End date for analytics
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Platform analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformAnalytics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login endpoint
+
+  schemas:
+    # Authentication Schemas
+    LoginCredentials:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "business@demo.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: User's password
+          example: "password123"
+        rememberMe:
+          type: boolean
+          description: Whether to remember the user session
+          default: false
+
+    RegisterData:
+      type: object
+      required:
+        - email
+        - password
+        - confirmPassword
+        - firstName
+        - lastName
+        - role
+        - agreeToTerms
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "newuser@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: User's password
+          example: "securePassword123"
+        confirmPassword:
+          type: string
+          format: password
+          minLength: 8
+          description: Password confirmation
+          example: "securePassword123"
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: User's first name
+          example: "John"
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: User's last name
+          example: "Doe"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        phone:
+          type: string
+          pattern: '^\+?[1-9]\d{1,14}$'
+          description: User's phone number
+          example: "+1-555-0123"
+        company:
+          type: string
+          maxLength: 100
+          description: User's company name
+          example: "Doe Enterprises"
+        agreeToTerms:
+          type: boolean
+          description: User agreement to terms and conditions
+          example: true
+
+    AuthResponse:
+      type: object
+      required:
+        - user
+        - token
+        - expiresIn
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+          description: JWT access token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          description: Refresh token for obtaining new access tokens
+          example: "refresh_token_example"
+        expiresIn:
+          type: integer
+          description: Token expiration time in seconds
+          example: 86400
+
+    # User Schemas
+    UserRole:
+      type: string
+      enum:
+        - BUSINESS
+        - PARTNER
+      description: User role in the system
+      example: "BUSINESS"
+
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - firstName
+        - lastName
+        - role
+        - phone
+        - company
+        - createdAt
+        - isActive
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+          example: "demo-business-user"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "business@demo.com"
+        firstName:
+          type: string
+          description: User's first name
+          example: "Demo"
+        lastName:
+          type: string
+          description: User's last name
+          example: "Business"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        phone:
+          type: string
+          description: User's phone number
+          example: "+1-555-0123"
+        company:
+          type: string
+          description: User's company name
+          example: "Demo Business Corp"
+        avatar:
+          type: string
+          format: uri
+          description: URL to user's avatar image
+          example: "https://api.franchisehub.com/avatars/user123.jpg"
+        bio:
+          type: string
+          description: User's biography
+          example: "Experienced business owner with 10+ years in franchise management"
+        location:
+          type: string
+          description: User's location
+          example: "New York, NY"
+        website:
+          type: string
+          format: uri
+          description: User's website URL
+          example: "https://demobusiness.com"
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last profile update timestamp
+          example: "2024-03-20T14:45:00Z"
+        isActive:
+          type: boolean
+          description: Whether the user account is active
+          example: true
+        lastLoginAt:
+          type: string
+          format: date-time
+          description: Last login timestamp
+          example: "2024-03-25T09:15:00Z"
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
+
+    UserPreferences:
+      type: object
+      properties:
+        notifications:
+          type: object
+          properties:
+            email:
+              type: boolean
+              description: Email notifications enabled
+              example: true
+            push:
+              type: boolean
+              description: Push notifications enabled
+              example: true
+            sms:
+              type: boolean
+              description: SMS notifications enabled
+              example: false
+        theme:
+          type: string
+          enum:
+            - light
+            - dark
+          description: UI theme preference
+          example: "light"
+        language:
+          type: string
+          description: Preferred language code
+          example: "en"
+        timezone:
+          type: string
+          description: User's timezone
+          example: "America/New_York"
+
+    ProfileUpdateData:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - phone
+        - company
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: User's first name
+          example: "John"
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: User's last name
+          example: "Doe"
+        phone:
+          type: string
+          pattern: '^\+?[1-9]\d{1,14}$'
+          description: User's phone number
+          example: "+1-555-0123"
+        company:
+          type: string
+          maxLength: 100
+          description: User's company name
+          example: "Doe Enterprises"
+        bio:
+          type: string
+          maxLength: 500
+          description: User's biography
+          example: "Experienced business owner"
+        location:
+          type: string
+          maxLength: 100
+          description: User's location
+          example: "New York, NY"
+        website:
+          type: string
+          format: uri
+          description: User's website URL
+          example: "https://doeenterprises.com"
+
+    PasswordChangeData:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+        - confirmPassword
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          description: Current password
+          example: "currentPassword123"
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          description: New password
+          example: "newSecurePassword123"
+        confirmPassword:
+          type: string
+          format: password
+          minLength: 8
+          description: New password confirmation
+          example: "newSecurePassword123"
+
+    # Franchise Schemas
+    FranchiseCategory:
+      type: string
+      enum:
+        - FOOD_BEVERAGE
+        - RETAIL
+        - SERVICES
+        - HEALTH_FITNESS
+        - EDUCATION
+        - AUTOMOTIVE
+        - REAL_ESTATE
+        - TECHNOLOGY
+        - CLEANING
+        - OTHER
+      description: Franchise business category
+      example: "FOOD_BEVERAGE"
+
+    FranchiseStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - PENDING
+        - SUSPENDED
+      description: Franchise listing status
+      example: "ACTIVE"
+
+    Franchise:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - category
+        - status
+        - businessOwnerId
+        - businessOwnerName
+        - franchiseFee
+        - royaltyFee
+        - marketingFee
+        - initialInvestment
+        - liquidCapitalRequired
+        - netWorthRequired
+        - yearEstablished
+        - totalUnits
+        - franchisedUnits
+        - companyOwnedUnits
+        - requirements
+        - support
+        - territories
+        - availableStates
+        - internationalOpportunities
+        - contactInfo
+        - createdAt
+        - updatedAt
+        - isActive
+        - isFeatured
+        - viewCount
+        - applicationCount
+        - rating
+        - reviewCount
+      properties:
+        id:
+          type: string
+          description: Unique franchise identifier
+          example: "franchise-001"
+        name:
+          type: string
+          description: Franchise name
+          example: "Chaayos"
+        description:
+          type: string
+          description: Detailed franchise description
+          example: "India's largest chai cafe chain offering premium tea experiences"
+        category:
+          $ref: '#/components/schemas/FranchiseCategory'
+        status:
+          $ref: '#/components/schemas/FranchiseStatus'
+        businessOwnerId:
+          type: string
+          description: ID of the business owner
+          example: "demo-business-user"
+        businessOwnerName:
+          type: string
+          description: Name of the business owner
+          example: "Demo Business"
+        logo:
+          type: string
+          format: uri
+          description: URL to franchise logo
+          example: "https://api.franchisehub.com/logos/chaayos.png"
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Array of franchise image URLs
+          example: ["https://api.franchisehub.com/images/chaayos1.jpg"]
+        franchiseFee:
+          type: number
+          format: double
+          minimum: 0
+          description: Initial franchise fee in INR
+          example: 1500000
+        royaltyFee:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Ongoing royalty fee percentage
+          example: 8.5
+        marketingFee:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Marketing fee percentage
+          example: 3.0
+        initialInvestment:
+          type: object
+          required:
+            - min
+            - max
+          properties:
+            min:
+              type: number
+              format: double
+              minimum: 0
+              description: Minimum initial investment in INR
+              example: 2500000
+            max:
+              type: number
+              format: double
+              minimum: 0
+              description: Maximum initial investment in INR
+              example: 4000000
+        liquidCapitalRequired:
+          type: number
+          format: double
+          minimum: 0
+          description: Required liquid capital in INR
+          example: 1000000
+        netWorthRequired:
+          type: number
+          format: double
+          minimum: 0
+          description: Required net worth in INR
+          example: 5000000
+        yearEstablished:
+          type: integer
+          minimum: 1800
+          maximum: 2100
+          description: Year the franchise was established
+          example: 2012
+        totalUnits:
+          type: integer
+          minimum: 0
+          description: Total number of units
+          example: 250
+        franchisedUnits:
+          type: integer
+          minimum: 0
+          description: Number of franchised units
+          example: 200
+        companyOwnedUnits:
+          type: integer
+          minimum: 0
+          description: Number of company-owned units
+          example: 50
+        requirements:
+          type: object
+          required:
+            - experience
+            - education
+            - creditScore
+            - background
+          properties:
+            experience:
+              type: string
+              description: Required experience
+              example: "2+ years in food service or retail management"
+            education:
+              type: string
+              description: Educational requirements
+              example: "Bachelor's degree preferred"
+            creditScore:
+              type: integer
+              minimum: 300
+              maximum: 850
+              description: Minimum credit score required
+              example: 650
+            background:
+              type: array
+              items:
+                type: string
+              description: Required background experience
+              example: ["Food Service", "Retail Management"]
+        support:
+          type: object
+          required:
+            - training
+            - marketing
+            - operations
+            - technology
+          properties:
+            training:
+              type: string
+              description: Training support provided
+              example: "Comprehensive 4-week training program"
+            marketing:
+              type: string
+              description: Marketing support provided
+              example: "National advertising campaigns and local marketing support"
+            operations:
+              type: string
+              description: Operational support provided
+              example: "Ongoing operational guidance and quality assurance"
+            technology:
+              type: string
+              description: Technology support provided
+              example: "POS system, mobile app, and digital ordering platform"
+        territories:
+          type: array
+          items:
+            type: string
+          description: Available territories
+          example: ["North India", "South India", "West India"]
+        availableStates:
+          type: array
+          items:
+            type: string
+          description: Available states for franchise
+          example: ["Delhi", "Mumbai", "Bangalore", "Chennai"]
+        internationalOpportunities:
+          type: boolean
+          description: Whether international opportunities are available
+          example: false
+        contactInfo:
+          type: object
+          required:
+            - phone
+            - email
+            - website
+            - address
+          properties:
+            phone:
+              type: string
+              description: Contact phone number
+              example: "+91-11-4567-8900"
+            email:
+              type: string
+              format: email
+              description: Contact email address
+              example: "franchise@chaayos.com"
+            website:
+              type: string
+              format: uri
+              description: Franchise website URL
+              example: "https://www.chaayos.com/franchise"
+            address:
+              type: string
+              description: Business address
+              example: "Gurgaon, Haryana, India"
+        createdAt:
+          type: string
+          format: date-time
+          description: Franchise creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-03-20T14:45:00Z"
+        isActive:
+          type: boolean
+          description: Whether the franchise is active
+          example: true
+        isFeatured:
+          type: boolean
+          description: Whether the franchise is featured
+          example: true
+        viewCount:
+          type: integer
+          minimum: 0
+          description: Number of views
+          example: 1250
+        applicationCount:
+          type: integer
+          minimum: 0
+          description: Number of applications received
+          example: 45
+        rating:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 5
+          description: Average rating
+          example: 4.5
+        reviewCount:
+          type: integer
+          minimum: 0
+          description: Number of reviews
+          example: 23
+
+    FranchiseCreateData:
+      type: object
+      required:
+        - name
+        - description
+        - category
+        - franchiseFee
+        - royaltyFee
+        - marketingFee
+        - initialInvestmentMin
+        - initialInvestmentMax
+        - liquidCapitalRequired
+        - netWorthRequired
+        - yearEstablished
+        - totalUnits
+        - franchisedUnits
+        - companyOwnedUnits
+        - requirements
+        - support
+        - territories
+        - availableStates
+        - internationalOpportunities
+        - contactInfo
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Franchise name
+          example: "New Franchise Opportunity"
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: Detailed franchise description
+          example: "Exciting new franchise opportunity in the food service industry"
+        category:
+          $ref: '#/components/schemas/FranchiseCategory'
+        franchiseFee:
+          type: number
+          format: double
+          minimum: 0
+          description: Initial franchise fee in INR
+          example: 1500000
+        royaltyFee:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Ongoing royalty fee percentage
+          example: 8.5
+        marketingFee:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Marketing fee percentage
+          example: 3.0
+        initialInvestmentMin:
+          type: number
+          format: double
+          minimum: 0
+          description: Minimum initial investment in INR
+          example: 2500000
+        initialInvestmentMax:
+          type: number
+          format: double
+          minimum: 0
+          description: Maximum initial investment in INR
+          example: 4000000
+        liquidCapitalRequired:
+          type: number
+          format: double
+          minimum: 0
+          description: Required liquid capital in INR
+          example: 1000000
+        netWorthRequired:
+          type: number
+          format: double
+          minimum: 0
+          description: Required net worth in INR
+          example: 5000000
+        yearEstablished:
+          type: integer
+          minimum: 1800
+          maximum: 2100
+          description: Year the franchise was established
+          example: 2012
+        totalUnits:
+          type: integer
+          minimum: 0
+          description: Total number of units
+          example: 250
+        franchisedUnits:
+          type: integer
+          minimum: 0
+          description: Number of franchised units
+          example: 200
+        companyOwnedUnits:
+          type: integer
+          minimum: 0
+          description: Number of company-owned units
+          example: 50
+        requirements:
+          type: object
+          required:
+            - experience
+            - education
+            - creditScore
+            - background
+          properties:
+            experience:
+              type: string
+              description: Required experience
+              example: "2+ years in food service or retail management"
+            education:
+              type: string
+              description: Educational requirements
+              example: "Bachelor's degree preferred"
+            creditScore:
+              type: integer
+              minimum: 300
+              maximum: 850
+              description: Minimum credit score required
+              example: 650
+            background:
+              type: array
+              items:
+                type: string
+              description: Required background experience
+              example: ["Food Service", "Retail Management"]
+        support:
+          type: object
+          required:
+            - training
+            - marketing
+            - operations
+            - technology
+          properties:
+            training:
+              type: string
+              description: Training support provided
+              example: "Comprehensive 4-week training program"
+            marketing:
+              type: string
+              description: Marketing support provided
+              example: "National advertising campaigns and local marketing support"
+            operations:
+              type: string
+              description: Operational support provided
+              example: "Ongoing operational guidance and quality assurance"
+            technology:
+              type: string
+              description: Technology support provided
+              example: "POS system, mobile app, and digital ordering platform"
+        territories:
+          type: array
+          items:
+            type: string
+          description: Available territories
+          example: ["North India", "South India", "West India"]
+        availableStates:
+          type: array
+          items:
+            type: string
+          description: Available states for franchise
+          example: ["Delhi", "Mumbai", "Bangalore", "Chennai"]
+        internationalOpportunities:
+          type: boolean
+          description: Whether international opportunities are available
+          example: false
+        contactInfo:
+          type: object
+          required:
+            - phone
+            - email
+            - website
+            - address
+          properties:
+            phone:
+              type: string
+              description: Contact phone number
+              example: "+91-11-4567-8900"
+            email:
+              type: string
+              format: email
+              description: Contact email address
+              example: "franchise@chaayos.com"
+            website:
+              type: string
+              format: uri
+              description: Franchise website URL
+              example: "https://www.chaayos.com/franchise"
+            address:
+              type: string
+              description: Business address
+              example: "Gurgaon, Haryana, India"
+
+    # Common Schemas
+    PaginationInfo:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 20
+        total:
+          type: integer
+          description: Total number of items
+          example: 150
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 8
+        hasNext:
+          type: boolean
+          description: Whether there are more pages
+          example: true
+        hasPrev:
+          type: boolean
+          description: Whether there are previous pages
+          example: false
+
+    # Application Schemas
+    ApplicationStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - UNDER_REVIEW
+        - APPROVED
+        - REJECTED
+        - WITHDRAWN
+      description: Application status
+      example: "SUBMITTED"
+
+    DocumentType:
+      type: string
+      enum:
+        - FINANCIAL_STATEMENT
+        - BANK_STATEMENT
+        - CREDIT_REPORT
+        - BUSINESS_PLAN
+        - RESUME
+        - REFERENCE_LETTER
+        - IDENTITY_PROOF
+        - ADDRESS_PROOF
+        - OTHER
+      description: Document type for application
+      example: "FINANCIAL_STATEMENT"
+
+    PersonalInfo:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - phone
+        - dateOfBirth
+        - address
+      properties:
+        firstName:
+          type: string
+          description: First name
+          example: "John"
+        lastName:
+          type: string
+          description: Last name
+          example: "Doe"
+        email:
+          type: string
+          format: email
+          description: Email address
+          example: "john.doe@example.com"
+        phone:
+          type: string
+          description: Phone number
+          example: "+1-555-0123"
+        dateOfBirth:
+          type: string
+          format: date
+          description: Date of birth
+          example: "1985-06-15"
+        address:
+          type: string
+          description: Full address
+          example: "123 Main St, New York, NY 10001"
+        city:
+          type: string
+          description: City
+          example: "New York"
+        state:
+          type: string
+          description: State
+          example: "NY"
+        zipCode:
+          type: string
+          description: ZIP code
+          example: "10001"
+        country:
+          type: string
+          description: Country
+          example: "USA"
+
+    FinancialInfo:
+      type: object
+      required:
+        - netWorth
+        - liquidCapital
+        - annualIncome
+        - creditScore
+      properties:
+        netWorth:
+          type: number
+          format: double
+          minimum: 0
+          description: Net worth in INR
+          example: 5000000
+        liquidCapital:
+          type: number
+          format: double
+          minimum: 0
+          description: Available liquid capital in INR
+          example: 2000000
+        annualIncome:
+          type: number
+          format: double
+          minimum: 0
+          description: Annual income in INR
+          example: 1500000
+        creditScore:
+          type: integer
+          minimum: 300
+          maximum: 850
+          description: Credit score
+          example: 750
+        bankName:
+          type: string
+          description: Primary bank name
+          example: "HDFC Bank"
+        accountNumber:
+          type: string
+          description: Bank account number (masked)
+          example: "****1234"
+        hasBusinessLoans:
+          type: boolean
+          description: Whether applicant has existing business loans
+          example: false
+        loanAmount:
+          type: number
+          format: double
+          minimum: 0
+          description: Existing loan amount if any
+          example: 0
+
+    BusinessInfo:
+      type: object
+      required:
+        - experience
+        - motivation
+        - timeCommitment
+        - preferredLocation
+      properties:
+        experience:
+          type: string
+          description: Business experience
+          example: "5 years in retail management"
+        motivation:
+          type: string
+          description: Motivation for franchise
+          example: "Looking to expand into food service industry"
+        timeCommitment:
+          type: string
+          description: Time commitment availability
+          example: "Full-time"
+        preferredLocation:
+          type: string
+          description: Preferred franchise location
+          example: "Mumbai, Maharashtra"
+        hasBusinessExperience:
+          type: boolean
+          description: Whether applicant has business experience
+          example: true
+        currentOccupation:
+          type: string
+          description: Current occupation
+          example: "Retail Manager"
+        questions:
+          type: string
+          description: Additional questions or comments
+          example: "What is the typical ROI timeline?"
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reference'
+
+    Reference:
+      type: object
+      required:
+        - name
+        - relationship
+        - phone
+        - email
+      properties:
+        name:
+          type: string
+          description: Reference name
+          example: "Jane Smith"
+        relationship:
+          type: string
+          description: Relationship to applicant
+          example: "Former Business Partner"
+        phone:
+          type: string
+          description: Reference phone number
+          example: "+1-555-0456"
+        email:
+          type: string
+          format: email
+          description: Reference email
+          example: "jane.smith@example.com"
+        company:
+          type: string
+          description: Reference company
+          example: "Smith Enterprises"
+
+    ApplicationDocument:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - url
+        - uploadedAt
+        - size
+        - isRequired
+      properties:
+        id:
+          type: string
+          description: Document ID
+          example: "doc-001"
+        name:
+          type: string
+          description: Document name
+          example: "Financial_Statement_2023.pdf"
+        type:
+          $ref: '#/components/schemas/DocumentType'
+        url:
+          type: string
+          format: uri
+          description: Document download URL
+          example: "https://api.franchisehub.com/documents/doc-001"
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Upload timestamp
+          example: "2024-03-15T10:30:00Z"
+        size:
+          type: integer
+          minimum: 0
+          description: File size in bytes
+          example: 2048576
+        isRequired:
+          type: boolean
+          description: Whether document is required
+          example: true
+        isVerified:
+          type: boolean
+          description: Whether document is verified
+          example: false
+        verifiedBy:
+          type: string
+          description: ID of user who verified document
+          example: "demo-business-user"
+        verifiedAt:
+          type: string
+          format: date-time
+          description: Verification timestamp
+          example: "2024-03-20T14:45:00Z"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation_error:
+              summary: Validation Error
+              value:
+                error: "VALIDATION_ERROR"
+                message: "Invalid input parameters"
+                details:
+                  - field: "email"
+                    message: "Invalid email format"
+                timestamp: "2024-03-25T10:30:00Z"
+
+    Unauthorized:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing_token:
+              summary: Missing Token
+              value:
+                error: "UNAUTHORIZED"
+                message: "Authentication token required"
+                timestamp: "2024-03-25T10:30:00Z"
+            invalid_token:
+              summary: Invalid Token
+              value:
+                error: "INVALID_TOKEN"
+                message: "Invalid or expired authentication token"
+                timestamp: "2024-03-25T10:30:00Z"
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            insufficient_permissions:
+              summary: Insufficient Permissions
+              value:
+                error: "FORBIDDEN"
+                message: "Insufficient permissions to access this resource"
+                timestamp: "2024-03-25T10:30:00Z"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            resource_not_found:
+              summary: Resource Not Found
+              value:
+                error: "NOT_FOUND"
+                message: "The requested resource was not found"
+                timestamp: "2024-03-25T10:30:00Z"
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            email_exists:
+              summary: Email Already Exists
+              value:
+                error: "CONFLICT"
+                message: "An account with this email already exists"
+                timestamp: "2024-03-25T10:30:00Z"
+
+    TooManyRequests:
+      description: Too many requests - rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            rate_limit_exceeded:
+              summary: Rate Limit Exceeded
+              value:
+                error: "RATE_LIMIT_EXCEEDED"
+                message: "Too many requests. Please try again later."
+                timestamp: "2024-03-25T10:30:00Z"
+                retryAfter: 3600
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            server_error:
+              summary: Server Error
+              value:
+                error: "INTERNAL_SERVER_ERROR"
+                message: "An unexpected error occurred"
+                timestamp: "2024-03-25T10:30:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - timestamp
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid input parameters"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                description: Field name with error
+                example: "email"
+              message:
+                type: string
+                description: Field-specific error message
+                example: "Invalid email format"
+          description: Detailed validation errors
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+          example: "2024-03-25T10:30:00Z"
+        path:
+          type: string
+          description: Request path that caused the error
+          example: "/api/v1/auth/login"
+        retryAfter:
+          type: integer
+          description: Seconds to wait before retrying (for rate limiting)
+          example: 3600
+
+    FranchiseApplication:
+      type: object
+      required:
+        - id
+        - franchiseId
+        - franchiseName
+        - partnerId
+        - partnerName
+        - partnerEmail
+        - status
+        - submittedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique application identifier
+          example: "app-001"
+        franchiseId:
+          type: string
+          description: Associated franchise ID
+          example: "franchise-001"
+        franchiseName:
+          type: string
+          description: Franchise name
+          example: "Chaayos"
+        partnerId:
+          type: string
+          description: Partner user ID
+          example: "demo-partner-user"
+        partnerName:
+          type: string
+          description: Partner name
+          example: "Demo Partner"
+        partnerEmail:
+          type: string
+          format: email
+          description: Partner email
+          example: "partner@demo.com"
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        submittedAt:
+          type: string
+          format: date-time
+          description: Application submission timestamp
+          example: "2024-03-15T10:30:00Z"
+        reviewedAt:
+          type: string
+          format: date-time
+          description: Application review timestamp
+          example: "2024-03-20T14:45:00Z"
+        reviewedBy:
+          type: string
+          description: ID of user who reviewed the application
+          example: "demo-business-user"
+        reviewNotes:
+          type: string
+          description: Review notes from business owner
+          example: "Strong financial background and relevant experience"
+        rejectionReason:
+          type: string
+          description: Reason for rejection if applicable
+          example: "Insufficient liquid capital"
+        personalInfo:
+          $ref: '#/components/schemas/PersonalInfo'
+        financialInfo:
+          $ref: '#/components/schemas/FinancialInfo'
+        businessInfo:
+          $ref: '#/components/schemas/BusinessInfo'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationDocument'
+        createdAt:
+          type: string
+          format: date-time
+          description: Application creation timestamp
+          example: "2024-03-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-03-20T14:45:00Z"
+
+    ApplicationCreateData:
+      type: object
+      required:
+        - franchiseId
+        - personalInfo
+        - financialInfo
+        - businessInfo
+      properties:
+        franchiseId:
+          type: string
+          description: ID of the franchise to apply for
+          example: "franchise-001"
+        personalInfo:
+          $ref: '#/components/schemas/PersonalInfo'
+        financialInfo:
+          $ref: '#/components/schemas/FinancialInfo'
+        businessInfo:
+          $ref: '#/components/schemas/BusinessInfo'
+
+    ApplicationReviewData:
+      type: object
+      required:
+        - status
+        - reviewNotes
+      properties:
+        status:
+          type: string
+          enum:
+            - APPROVED
+            - REJECTED
+          description: Review decision
+          example: "APPROVED"
+        reviewNotes:
+          type: string
+          minLength: 10
+          maxLength: 1000
+          description: Review notes and feedback
+          example: "Excellent financial background and strong business plan. Approved for partnership."
+        rejectionReason:
+          type: string
+          maxLength: 500
+          description: Specific reason for rejection (required if status is REJECTED)
+          example: "Insufficient liquid capital for this franchise opportunity"
+
+    # Payment Schemas
+    PaymentStatus:
+      type: string
+      enum:
+        - PENDING
+        - PROCESSING
+        - COMPLETED
+        - FAILED
+        - CANCELLED
+        - REFUNDED
+      description: Payment transaction status
+      example: "COMPLETED"
+
+    PaymentMethod:
+      type: string
+      enum:
+        - CREDIT_CARD
+        - DEBIT_CARD
+        - BANK_TRANSFER
+        - UPI
+        - WALLET
+        - NET_BANKING
+      description: Payment method used
+      example: "UPI"
+
+    PaymentTransaction:
+      type: object
+      required:
+        - id
+        - applicationId
+        - partnerId
+        - partnerName
+        - franchiseId
+        - franchiseName
+        - amount
+        - currency
+        - status
+        - paymentMethod
+        - transactionReference
+        - description
+        - initiatedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique transaction identifier
+          example: "txn-001"
+        applicationId:
+          type: string
+          description: Associated application ID
+          example: "app-001"
+        partnerId:
+          type: string
+          description: Partner user ID
+          example: "demo-partner-user"
+        partnerName:
+          type: string
+          description: Partner name
+          example: "Demo Partner"
+        franchiseId:
+          type: string
+          description: Associated franchise ID
+          example: "franchise-001"
+        franchiseName:
+          type: string
+          description: Franchise name
+          example: "Chaayos"
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Transaction amount in INR
+          example: 150000
+        currency:
+          type: string
+          description: Currency code
+          example: "INR"
+        status:
+          $ref: '#/components/schemas/PaymentStatus'
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+        transactionReference:
+          type: string
+          description: Internal transaction reference
+          example: "TXN-2024-001"
+        gatewayTransactionId:
+          type: string
+          description: Payment gateway transaction ID
+          example: "pg_txn_123456"
+        cardLast4:
+          type: string
+          description: Last 4 digits of card (if applicable)
+          example: "1234"
+        bankName:
+          type: string
+          description: Bank name (if applicable)
+          example: "HDFC Bank"
+        upiId:
+          type: string
+          description: UPI ID (if applicable)
+          example: "user@paytm"
+        initiatedAt:
+          type: string
+          format: date-time
+          description: Transaction initiation timestamp
+          example: "2024-03-15T10:30:00Z"
+        completedAt:
+          type: string
+          format: date-time
+          description: Transaction completion timestamp
+          example: "2024-03-15T10:32:00Z"
+        failedAt:
+          type: string
+          format: date-time
+          description: Transaction failure timestamp
+          example: "2024-03-15T10:31:00Z"
+        description:
+          type: string
+          description: Transaction description
+          example: "Application fee payment for Chaayos franchise"
+        receiptUrl:
+          type: string
+          format: uri
+          description: Payment receipt URL
+          example: "https://api.franchisehub.com/receipts/txn-001"
+        failureReason:
+          type: string
+          description: Failure reason (if applicable)
+          example: "Insufficient funds"
+        refundTransactionId:
+          type: string
+          description: Refund transaction ID (if applicable)
+          example: "refund-001"
+        createdAt:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: "2024-03-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-03-15T10:32:00Z"
+
+    PaymentProcessData:
+      type: object
+      required:
+        - applicationId
+        - amount
+        - paymentMethod
+        - description
+      properties:
+        applicationId:
+          type: string
+          description: Application ID for payment
+          example: "app-001"
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Payment amount in INR
+          example: 150000
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+        description:
+          type: string
+          description: Payment description
+          example: "Application fee payment"
+        cardDetails:
+          type: object
+          properties:
+            cardNumber:
+              type: string
+              description: Credit/debit card number (will be tokenized)
+              example: "4111111111111111"
+            expiryMonth:
+              type: string
+              description: Card expiry month
+              example: "12"
+            expiryYear:
+              type: string
+              description: Card expiry year
+              example: "2025"
+            cvv:
+              type: string
+              description: Card CVV
+              example: "123"
+            holderName:
+              type: string
+              description: Card holder name
+              example: "John Doe"
+        bankDetails:
+          type: object
+          properties:
+            accountNumber:
+              type: string
+              description: Bank account number
+              example: "1234567890"
+            ifscCode:
+              type: string
+              description: Bank IFSC code
+              example: "HDFC0001234"
+            accountHolderName:
+              type: string
+              description: Account holder name
+              example: "John Doe"
+        upiDetails:
+          type: object
+          properties:
+            upiId:
+              type: string
+              description: UPI ID
+              example: "john.doe@paytm"
+
+    PaymentRequestStatus:
+      type: string
+      enum:
+        - PENDING
+        - PAID
+        - OVERDUE
+        - CANCELLED
+      description: Payment request status
+      example: "PENDING"
+
+    PaymentRequest:
+      type: object
+      required:
+        - id
+        - applicationId
+        - franchiseId
+        - franchiseName
+        - businessOwnerId
+        - businessOwnerName
+        - partnerId
+        - partnerName
+        - partnerEmail
+        - amount
+        - currency
+        - purpose
+        - status
+        - requestedAt
+        - createdAt
+        - updatedAt
+        - createdBy
+      properties:
+        id:
+          type: string
+          description: Unique payment request identifier
+          example: "req-001"
+        applicationId:
+          type: string
+          description: Associated application ID
+          example: "app-001"
+        franchiseId:
+          type: string
+          description: Associated franchise ID
+          example: "franchise-001"
+        franchiseName:
+          type: string
+          description: Franchise name
+          example: "Chaayos"
+        businessOwnerId:
+          type: string
+          description: Business owner ID
+          example: "demo-business-user"
+        businessOwnerName:
+          type: string
+          description: Business owner name
+          example: "Demo Business"
+        partnerId:
+          type: string
+          description: Partner user ID
+          example: "demo-partner-user"
+        partnerName:
+          type: string
+          description: Partner name
+          example: "Demo Partner"
+        partnerEmail:
+          type: string
+          format: email
+          description: Partner email
+          example: "partner@demo.com"
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Payment request amount in INR
+          example: 50000
+        currency:
+          type: string
+          description: Currency code
+          example: "INR"
+        purpose:
+          type: string
+          description: Payment purpose
+          example: "Monthly royalty fee"
+        description:
+          type: string
+          description: Additional payment description
+          example: "Royalty fee for March 2024"
+        status:
+          $ref: '#/components/schemas/PaymentRequestStatus'
+        requestedAt:
+          type: string
+          format: date-time
+          description: Payment request timestamp
+          example: "2024-03-15T10:30:00Z"
+        dueDate:
+          type: string
+          format: date-time
+          description: Payment due date
+          example: "2024-03-30T23:59:59Z"
+        paidAt:
+          type: string
+          format: date-time
+          description: Payment completion timestamp
+          example: "2024-03-20T14:45:00Z"
+        paymentTransactionId:
+          type: string
+          description: Associated payment transaction ID
+          example: "txn-001"
+        createdAt:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: "2024-03-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-03-20T14:45:00Z"
+        createdBy:
+          type: string
+          description: ID of user who created the request
+          example: "demo-business-user"
+
+    PaymentRequestCreateData:
+      type: object
+      required:
+        - applicationId
+        - partnerId
+        - amount
+        - purpose
+      properties:
+        applicationId:
+          type: string
+          description: Application ID for payment request
+          example: "app-001"
+        partnerId:
+          type: string
+          description: Partner user ID
+          example: "demo-partner-user"
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Payment request amount in INR
+          example: 50000
+        purpose:
+          type: string
+          description: Payment purpose
+          example: "Monthly royalty fee"
+        description:
+          type: string
+          description: Additional payment description
+          example: "Royalty fee for March 2024"
+        dueDate:
+          type: string
+          format: date-time
+          description: Payment due date
+          example: "2024-03-30T23:59:59Z"
+
+    PaymentSettlementData:
+      type: object
+      required:
+        - paymentMethod
+      properties:
+        paymentMethod:
+          $ref: '#/components/schemas/PaymentMethod'
+        cardDetails:
+          type: object
+          properties:
+            cardNumber:
+              type: string
+              description: Credit/debit card number (will be tokenized)
+              example: "4111111111111111"
+            expiryMonth:
+              type: string
+              description: Card expiry month
+              example: "12"
+            expiryYear:
+              type: string
+              description: Card expiry year
+              example: "2025"
+            cvv:
+              type: string
+              description: Card CVV
+              example: "123"
+            holderName:
+              type: string
+              description: Card holder name
+              example: "John Doe"
+        bankDetails:
+          type: object
+          properties:
+            accountNumber:
+              type: string
+              description: Bank account number
+              example: "1234567890"
+            ifscCode:
+              type: string
+              description: Bank IFSC code
+              example: "HDFC0001234"
+            accountHolderName:
+              type: string
+              description: Account holder name
+              example: "John Doe"
+        upiDetails:
+          type: object
+          properties:
+            upiId:
+              type: string
+              description: UPI ID
+              example: "john.doe@paytm"
+
+    # Partnership Schemas
+    PartnershipStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - SUSPENDED
+        - TERMINATED
+        - PENDING_ACTIVATION
+      description: Partnership status
+      example: "ACTIVE"
+
+    Partnership:
+      type: object
+      required:
+        - id
+        - applicationId
+        - franchiseId
+        - franchiseName
+        - businessOwnerId
+        - businessOwnerName
+        - partnerId
+        - partnerName
+        - partnerEmail
+        - status
+        - activatedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Unique partnership identifier
+          example: "partnership-001"
+        applicationId:
+          type: string
+          description: Original application ID
+          example: "app-001"
+        franchiseId:
+          type: string
+          description: Associated franchise ID
+          example: "franchise-001"
+        franchiseName:
+          type: string
+          description: Franchise name
+          example: "Chaayos"
+        businessOwnerId:
+          type: string
+          description: Business owner ID
+          example: "demo-business-user"
+        businessOwnerName:
+          type: string
+          description: Business owner name
+          example: "Demo Business"
+        partnerId:
+          type: string
+          description: Partner user ID
+          example: "demo-partner-user"
+        partnerName:
+          type: string
+          description: Partner name
+          example: "Demo Partner"
+        partnerEmail:
+          type: string
+          format: email
+          description: Partner email
+          example: "partner@demo.com"
+        status:
+          $ref: '#/components/schemas/PartnershipStatus'
+        territory:
+          type: object
+          properties:
+            city:
+              type: string
+              description: Assigned city
+              example: "Mumbai"
+            state:
+              type: string
+              description: Assigned state
+              example: "Maharashtra"
+            exclusiveRadius:
+              type: number
+              format: double
+              description: Exclusive territory radius in km
+              example: 5.0
+            population:
+              type: integer
+              description: Territory population
+              example: 500000
+        performance:
+          type: object
+          properties:
+            monthlyRevenue:
+              type: number
+              format: double
+              description: Monthly revenue in INR
+              example: 250000
+            customerCount:
+              type: integer
+              description: Total customer count
+              example: 1500
+            satisfactionScore:
+              type: number
+              format: double
+              minimum: 0
+              maximum: 5
+              description: Customer satisfaction score
+              example: 4.2
+            complianceScore:
+              type: number
+              format: double
+              minimum: 0
+              maximum: 100
+              description: Compliance score percentage
+              example: 95.5
+        activatedAt:
+          type: string
+          format: date-time
+          description: Partnership activation timestamp
+          example: "2024-03-20T14:45:00Z"
+        deactivatedAt:
+          type: string
+          format: date-time
+          description: Partnership deactivation timestamp
+          example: "2024-06-15T10:30:00Z"
+        terminatedAt:
+          type: string
+          format: date-time
+          description: Partnership termination timestamp
+          example: "2024-12-31T23:59:59Z"
+        contractStartDate:
+          type: string
+          format: date
+          description: Contract start date
+          example: "2024-03-20"
+        contractEndDate:
+          type: string
+          format: date
+          description: Contract end date
+          example: "2029-03-19"
+        renewalDate:
+          type: string
+          format: date
+          description: Next renewal date
+          example: "2029-03-19"
+        notes:
+          type: string
+          description: Partnership notes
+          example: "Excellent performance, potential for expansion"
+        createdAt:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: "2024-03-20T14:45:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-03-25T10:30:00Z"
+
+    PartnershipUpdateData:
+      type: object
+      properties:
+        territory:
+          type: object
+          properties:
+            city:
+              type: string
+              description: Assigned city
+              example: "Mumbai"
+            state:
+              type: string
+              description: Assigned state
+              example: "Maharashtra"
+            exclusiveRadius:
+              type: number
+              format: double
+              description: Exclusive territory radius in km
+              example: 5.0
+            population:
+              type: integer
+              description: Territory population
+              example: 500000
+        contractEndDate:
+          type: string
+          format: date
+          description: Contract end date
+          example: "2029-03-19"
+        notes:
+          type: string
+          description: Partnership notes
+          example: "Updated territory boundaries"
+
+    PartnershipDeactivationData:
+      type: object
+      required:
+        - reason
+        - effectiveDate
+      properties:
+        reason:
+          type: string
+          description: Reason for deactivation
+          example: "Performance issues"
+        effectiveDate:
+          type: string
+          format: date
+          description: Deactivation effective date
+          example: "2024-06-15"
+        notes:
+          type: string
+          description: Additional deactivation notes
+          example: "Multiple compliance violations"
+        allowReactivation:
+          type: boolean
+          description: Whether reactivation is allowed
+          default: true
+
+    PartnershipDeactivation:
+      type: object
+      required:
+        - id
+        - partnershipId
+        - reason
+        - effectiveDate
+        - deactivatedBy
+        - deactivatedAt
+      properties:
+        id:
+          type: string
+          description: Unique deactivation record ID
+          example: "deact-001"
+        partnershipId:
+          type: string
+          description: Associated partnership ID
+          example: "partnership-001"
+        reason:
+          type: string
+          description: Reason for deactivation
+          example: "Performance issues"
+        effectiveDate:
+          type: string
+          format: date
+          description: Deactivation effective date
+          example: "2024-06-15"
+        notes:
+          type: string
+          description: Additional deactivation notes
+          example: "Multiple compliance violations"
+        allowReactivation:
+          type: boolean
+          description: Whether reactivation is allowed
+          example: true
+        deactivatedBy:
+          type: string
+          description: ID of user who deactivated
+          example: "demo-business-user"
+        deactivatedAt:
+          type: string
+          format: date-time
+          description: Deactivation timestamp
+          example: "2024-06-15T10:30:00Z"
+        reactivatedAt:
+          type: string
+          format: date-time
+          description: Reactivation timestamp
+          example: "2024-07-01T09:00:00Z"
+        reactivatedBy:
+          type: string
+          description: ID of user who reactivated
+          example: "demo-business-user"
+
+    PartnershipPerformance:
+      type: object
+      properties:
+        partnershipId:
+          type: string
+          description: Partnership ID
+          example: "partnership-001"
+        period:
+          type: string
+          description: Performance period
+          example: "2024-03"
+        metrics:
+          type: object
+          properties:
+            revenue:
+              type: number
+              format: double
+              description: Revenue for the period
+              example: 250000
+            customerCount:
+              type: integer
+              description: Customer count
+              example: 1500
+            transactionCount:
+              type: integer
+              description: Transaction count
+              example: 2500
+            averageOrderValue:
+              type: number
+              format: double
+              description: Average order value
+              example: 100
+            satisfactionScore:
+              type: number
+              format: double
+              description: Customer satisfaction score
+              example: 4.2
+            complianceScore:
+              type: number
+              format: double
+              description: Compliance score
+              example: 95.5
+        trends:
+          type: object
+          properties:
+            revenueGrowth:
+              type: number
+              format: double
+              description: Revenue growth percentage
+              example: 15.5
+            customerGrowth:
+              type: number
+              format: double
+              description: Customer growth percentage
+              example: 8.2
+        benchmarks:
+          type: object
+          properties:
+            industryAverage:
+              type: number
+              format: double
+              description: Industry average performance
+              example: 200000
+            franchiseAverage:
+              type: number
+              format: double
+              description: Franchise average performance
+              example: 220000
+
+    # Analytics Schemas
+    DashboardAnalytics:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            totalUsers:
+              type: integer
+              description: Total number of users
+              example: 1250
+            totalFranchises:
+              type: integer
+              description: Total number of franchises
+              example: 45
+            totalApplications:
+              type: integer
+              description: Total number of applications
+              example: 320
+            totalPartnerships:
+              type: integer
+              description: Total number of active partnerships
+              example: 85
+            totalRevenue:
+              type: number
+              format: double
+              description: Total revenue in INR
+              example: 15750000
+        trends:
+          type: object
+          properties:
+            userGrowth:
+              type: number
+              format: double
+              description: User growth percentage
+              example: 12.5
+            applicationGrowth:
+              type: number
+              format: double
+              description: Application growth percentage
+              example: 8.3
+            revenueGrowth:
+              type: number
+              format: double
+              description: Revenue growth percentage
+              example: 22.1
+        recentActivity:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                description: Activity type
+                example: "APPLICATION_SUBMITTED"
+              description:
+                type: string
+                description: Activity description
+                example: "New application submitted for Chaayos franchise"
+              timestamp:
+                type: string
+                format: date-time
+                description: Activity timestamp
+                example: "2024-03-25T10:30:00Z"
+              userId:
+                type: string
+                description: Associated user ID
+                example: "demo-partner-user"
+
+    RevenueAnalytics:
+      type: object
+      properties:
+        period:
+          type: string
+          description: Analytics period
+          example: "2024-Q1"
+        totalRevenue:
+          type: number
+          format: double
+          description: Total revenue for period
+          example: 5250000
+        revenueBreakdown:
+          type: object
+          properties:
+            applicationFees:
+              type: number
+              format: double
+              description: Revenue from application fees
+              example: 2100000
+            royaltyFees:
+              type: number
+              format: double
+              description: Revenue from royalty fees
+              example: 2800000
+            marketingFees:
+              type: number
+              format: double
+              description: Revenue from marketing fees
+              example: 350000
+        trends:
+          type: array
+          items:
+            type: object
+            properties:
+              period:
+                type: string
+                description: Period identifier
+                example: "2024-01"
+              revenue:
+                type: number
+                format: double
+                description: Revenue for period
+                example: 1750000
+              growth:
+                type: number
+                format: double
+                description: Growth percentage
+                example: 15.2
+        topPerformers:
+          type: array
+          items:
+            type: object
+            properties:
+              franchiseId:
+                type: string
+                description: Franchise ID
+                example: "franchise-001"
+              franchiseName:
+                type: string
+                description: Franchise name
+                example: "Chaayos"
+              revenue:
+                type: number
+                format: double
+                description: Franchise revenue
+                example: 850000
+              growth:
+                type: number
+                format: double
+                description: Growth percentage
+                example: 25.3
+
+    ApplicationAnalytics:
+      type: object
+      properties:
+        period:
+          type: string
+          description: Analytics period
+          example: "2024-Q1"
+        totalApplications:
+          type: integer
+          description: Total applications for period
+          example: 125
+        statusBreakdown:
+          type: object
+          properties:
+            submitted:
+              type: integer
+              description: Submitted applications
+              example: 45
+            underReview:
+              type: integer
+              description: Applications under review
+              example: 25
+            approved:
+              type: integer
+              description: Approved applications
+              example: 35
+            rejected:
+              type: integer
+              description: Rejected applications
+              example: 20
+        conversionMetrics:
+          type: object
+          properties:
+            submissionToApproval:
+              type: number
+              format: double
+              description: Submission to approval conversion rate
+              example: 28.0
+            approvalToPartnership:
+              type: number
+              format: double
+              description: Approval to partnership conversion rate
+              example: 85.7
+            averageProcessingTime:
+              type: number
+              format: double
+              description: Average processing time in days
+              example: 12.5
+        trends:
+          type: array
+          items:
+            type: object
+            properties:
+              period:
+                type: string
+                description: Period identifier
+                example: "2024-01"
+              applications:
+                type: integer
+                description: Applications for period
+                example: 42
+              conversionRate:
+                type: number
+                format: double
+                description: Conversion rate percentage
+                example: 26.2
+
+    PartnershipAnalytics:
+      type: object
+      properties:
+        period:
+          type: string
+          description: Analytics period
+          example: "2024-Q1"
+        totalPartnerships:
+          type: integer
+          description: Total active partnerships
+          example: 85
+        statusBreakdown:
+          type: object
+          properties:
+            active:
+              type: integer
+              description: Active partnerships
+              example: 75
+            inactive:
+              type: integer
+              description: Inactive partnerships
+              example: 8
+            suspended:
+              type: integer
+              description: Suspended partnerships
+              example: 2
+        performanceMetrics:
+          type: object
+          properties:
+            averageRevenue:
+              type: number
+              format: double
+              description: Average partnership revenue
+              example: 225000
+            averageSatisfaction:
+              type: number
+              format: double
+              description: Average satisfaction score
+              example: 4.1
+            averageCompliance:
+              type: number
+              format: double
+              description: Average compliance score
+              example: 92.3
+        retentionMetrics:
+          type: object
+          properties:
+            retentionRate:
+              type: number
+              format: double
+              description: Partnership retention rate
+              example: 88.2
+            averageLifespan:
+              type: number
+              format: double
+              description: Average partnership lifespan in months
+              example: 36.5
+            renewalRate:
+              type: number
+              format: double
+              description: Contract renewal rate
+              example: 76.4
+
+    CustomReportRequest:
+      type: object
+      required:
+        - reportType
+        - parameters
+      properties:
+        reportType:
+          type: string
+          enum:
+            - REVENUE_ANALYSIS
+            - APPLICATION_FUNNEL
+            - PARTNERSHIP_PERFORMANCE
+            - USER_ENGAGEMENT
+            - FRANCHISE_COMPARISON
+          description: Type of custom report
+          example: "REVENUE_ANALYSIS"
+        parameters:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date
+              description: Report start date
+              example: "2024-01-01"
+            endDate:
+              type: string
+              format: date
+              description: Report end date
+              example: "2024-03-31"
+            franchiseIds:
+              type: array
+              items:
+                type: string
+              description: Specific franchise IDs to include
+              example: ["franchise-001", "franchise-002"]
+            groupBy:
+              type: string
+              enum: [daily, weekly, monthly, quarterly]
+              description: Data grouping period
+              example: "monthly"
+            metrics:
+              type: array
+              items:
+                type: string
+              description: Specific metrics to include
+              example: ["revenue", "applications", "conversions"]
+        format:
+          type: string
+          enum: [JSON, CSV, PDF, EXCEL]
+          description: Report output format
+          default: "JSON"
+        deliveryMethod:
+          type: string
+          enum: [API, EMAIL, DOWNLOAD]
+          description: Report delivery method
+          default: "API"
+
+    CustomReport:
+      type: object
+      properties:
+        reportId:
+          type: string
+          description: Report ID
+          example: "report-001"
+        reportType:
+          type: string
+          description: Report type
+          example: "REVENUE_ANALYSIS"
+        status:
+          type: string
+          enum: [PROCESSING, COMPLETED, FAILED]
+          description: Report generation status
+          example: "COMPLETED"
+        generatedAt:
+          type: string
+          format: date-time
+          description: Report generation timestamp
+          example: "2024-03-25T10:35:00Z"
+        data:
+          type: object
+          description: Report data (structure varies by report type)
+        downloadUrl:
+          type: string
+          format: uri
+          description: Report download URL
+          example: "https://api.franchisehub.com/reports/report-001/download"
+        expiresAt:
+          type: string
+          format: date-time
+          description: Download URL expiration
+          example: "2024-04-01T10:35:00Z"
+
+    # Admin Schemas
+    SystemConfig:
+      type: object
+      properties:
+        general:
+          type: object
+          properties:
+            platformName:
+              type: string
+              description: Platform name
+              example: "FranchiseHub"
+            supportEmail:
+              type: string
+              format: email
+              description: Support email address
+              example: "support@franchisehub.com"
+            maintenanceMode:
+              type: boolean
+              description: Maintenance mode status
+              example: false
+        payments:
+          type: object
+          properties:
+            enabledMethods:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentMethod'
+              description: Enabled payment methods
+            processingFee:
+              type: number
+              format: double
+              description: Payment processing fee percentage
+              example: 2.5
+            minimumAmount:
+              type: number
+              format: double
+              description: Minimum payment amount
+              example: 100
+        applications:
+          type: object
+          properties:
+            autoApprovalThreshold:
+              type: number
+              format: double
+              description: Auto-approval threshold amount
+              example: 1000000
+            maxDocumentSize:
+              type: integer
+              description: Maximum document size in bytes
+              example: 10485760
+            allowedDocumentTypes:
+              type: array
+              items:
+                type: string
+              description: Allowed document file types
+              example: ["pdf", "jpg", "png", "doc", "docx"]
+        notifications:
+          type: object
+          properties:
+            emailEnabled:
+              type: boolean
+              description: Email notifications enabled
+              example: true
+            smsEnabled:
+              type: boolean
+              description: SMS notifications enabled
+              example: true
+            pushEnabled:
+              type: boolean
+              description: Push notifications enabled
+              example: true
+
+    SystemConfigUpdate:
+      type: object
+      properties:
+        general:
+          type: object
+          properties:
+            supportEmail:
+              type: string
+              format: email
+              description: Support email address
+            maintenanceMode:
+              type: boolean
+              description: Maintenance mode status
+        payments:
+          type: object
+          properties:
+            enabledMethods:
+              type: array
+              items:
+                $ref: '#/components/schemas/PaymentMethod'
+              description: Enabled payment methods
+            processingFee:
+              type: number
+              format: double
+              description: Payment processing fee percentage
+            minimumAmount:
+              type: number
+              format: double
+              description: Minimum payment amount
+        applications:
+          type: object
+          properties:
+            autoApprovalThreshold:
+              type: number
+              format: double
+              description: Auto-approval threshold amount
+            maxDocumentSize:
+              type: integer
+              description: Maximum document size in bytes
+            allowedDocumentTypes:
+              type: array
+              items:
+                type: string
+              description: Allowed document file types
+        notifications:
+          type: object
+          properties:
+            emailEnabled:
+              type: boolean
+              description: Email notifications enabled
+            smsEnabled:
+              type: boolean
+              description: SMS notifications enabled
+            pushEnabled:
+              type: boolean
+              description: Push notifications enabled
+
+    AuditLog:
+      type: object
+      required:
+        - id
+        - action
+        - userId
+        - timestamp
+        - ipAddress
+        - userAgent
+      properties:
+        id:
+          type: string
+          description: Unique audit log ID
+          example: "audit-001"
+        action:
+          type: string
+          enum:
+            - CREATE
+            - UPDATE
+            - DELETE
+            - LOGIN
+            - LOGOUT
+            - PAYMENT
+            - APPROVAL
+            - DEACTIVATION
+            - REACTIVATION
+          description: Action performed
+          example: "APPROVAL"
+        userId:
+          type: string
+          description: User who performed the action
+          example: "demo-business-user"
+        userName:
+          type: string
+          description: Name of user who performed the action
+          example: "Demo Business"
+        resourceType:
+          type: string
+          description: Type of resource affected
+          example: "APPLICATION"
+        resourceId:
+          type: string
+          description: ID of resource affected
+          example: "app-001"
+        details:
+          type: object
+          description: Additional action details
+          example:
+            previousStatus: "UNDER_REVIEW"
+            newStatus: "APPROVED"
+            notes: "Excellent application"
+        timestamp:
+          type: string
+          format: date-time
+          description: Action timestamp
+          example: "2024-03-25T10:30:00Z"
+        ipAddress:
+          type: string
+          description: IP address of user
+          example: "192.168.1.100"
+        userAgent:
+          type: string
+          description: User agent string
+          example: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+        sessionId:
+          type: string
+          description: User session ID
+          example: "session-123"
+
+    DataExportRequest:
+      type: object
+      required:
+        - exportType
+        - format
+      properties:
+        exportType:
+          type: string
+          enum:
+            - USERS
+            - FRANCHISES
+            - APPLICATIONS
+            - TRANSACTIONS
+            - PARTNERSHIPS
+            - AUDIT_LOGS
+            - FULL_BACKUP
+          description: Type of data to export
+          example: "APPLICATIONS"
+        format:
+          type: string
+          enum: [CSV, JSON, EXCEL, SQL]
+          description: Export format
+          example: "CSV"
+        filters:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date
+              description: Export start date
+            endDate:
+              type: string
+              format: date
+              description: Export end date
+            userRole:
+              $ref: '#/components/schemas/UserRole'
+            status:
+              type: string
+              description: Status filter (varies by export type)
+        includeDeleted:
+          type: boolean
+          description: Include deleted records
+          default: false
+        compression:
+          type: string
+          enum: [NONE, ZIP, GZIP]
+          description: Compression format
+          default: "ZIP"
+
+    PlatformAnalytics:
+      type: object
+      properties:
+        overview:
+          type: object
+          properties:
+            totalUsers:
+              type: integer
+              description: Total platform users
+              example: 2500
+            totalFranchises:
+              type: integer
+              description: Total franchises
+              example: 150
+            totalApplications:
+              type: integer
+              description: Total applications
+              example: 1250
+            totalPartnerships:
+              type: integer
+              description: Total partnerships
+              example: 320
+            totalRevenue:
+              type: number
+              format: double
+              description: Total platform revenue
+              example: 45750000
+        growth:
+          type: object
+          properties:
+            userGrowthRate:
+              type: number
+              format: double
+              description: User growth rate percentage
+              example: 15.2
+            franchiseGrowthRate:
+              type: number
+              format: double
+              description: Franchise growth rate percentage
+              example: 8.7
+            revenueGrowthRate:
+              type: number
+              format: double
+              description: Revenue growth rate percentage
+              example: 22.5
+        engagement:
+          type: object
+          properties:
+            dailyActiveUsers:
+              type: integer
+              description: Daily active users
+              example: 450
+            monthlyActiveUsers:
+              type: integer
+              description: Monthly active users
+              example: 1850
+            averageSessionDuration:
+              type: number
+              format: double
+              description: Average session duration in minutes
+              example: 25.5
+        performance:
+          type: object
+          properties:
+            applicationConversionRate:
+              type: number
+              format: double
+              description: Application to partnership conversion rate
+              example: 24.8
+            averageApplicationProcessingTime:
+              type: number
+              format: double
+              description: Average processing time in days
+              example: 11.2
+            partnershipRetentionRate:
+              type: number
+              format: double
+              description: Partnership retention rate
+              example: 87.3
+
+    # Notification Schemas
+    Notification:
+      type: object
+      required:
+        - id
+        - userId
+        - type
+        - title
+        - message
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Unique notification identifier
+          example: "notif-001"
+        userId:
+          type: string
+          description: User ID who should receive the notification
+          example: "demo-partner-user"
+        type:
+          type: string
+          enum:
+            - APPLICATION_UPDATE
+            - PAYMENT_REQUEST
+            - PARTNERSHIP_UPDATE
+            - SYSTEM_ALERT
+            - DOCUMENT_REQUIRED
+            - APPROVAL_NOTIFICATION
+          description: Type of notification
+          example: "PAYMENT_REQUEST"
+        title:
+          type: string
+          description: Notification title
+          example: "New Payment Request"
+        message:
+          type: string
+          description: Notification message
+          example: "You have received a payment request of ₹50,000 for Chaayos franchise"
+        status:
+          type: string
+          enum: [READ, UNREAD]
+          description: Notification read status
+          example: "UNREAD"
+        applicationId:
+          type: string
+          description: Related application ID (if applicable)
+          example: "app-001"
+        franchiseId:
+          type: string
+          description: Related franchise ID (if applicable)
+          example: "franchise-001"
+        paymentRequestId:
+          type: string
+          description: Related payment request ID (if applicable)
+          example: "req-001"
+        actionUrl:
+          type: string
+          description: URL for notification action
+          example: "/partner/partnerships/app-001"
+        actionText:
+          type: string
+          description: Text for action button
+          example: "Pay Now"
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, URGENT]
+          description: Notification priority
+          default: "MEDIUM"
+          example: "HIGH"
+        expiresAt:
+          type: string
+          format: date-time
+          description: Notification expiration timestamp
+          example: "2024-04-25T10:30:00Z"
+        readAt:
+          type: string
+          format: date-time
+          description: Timestamp when notification was read
+          example: "2024-03-26T14:20:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          description: Notification creation timestamp
+          example: "2024-03-25T10:30:00Z"
