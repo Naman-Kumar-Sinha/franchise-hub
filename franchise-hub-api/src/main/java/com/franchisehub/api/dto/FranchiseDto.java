@@ -1,6 +1,6 @@
 package com.franchisehub.api.dto;
 
-import com.franchisehub.api.entity.Franchise;
+import com.franchisehub.api.model.Franchise;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;

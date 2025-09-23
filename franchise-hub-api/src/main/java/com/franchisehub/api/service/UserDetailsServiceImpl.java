@@ -1,6 +1,6 @@
 package com.franchisehub.api.service;
 
-import com.franchisehub.api.entity.User;
+import com.franchisehub.api.model.User;
 import com.franchisehub.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;

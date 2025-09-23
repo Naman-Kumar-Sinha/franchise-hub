@@ -1,7 +1,7 @@
 package com.franchisehub.api.service;
 
 import com.franchisehub.api.dto.AuthDto;
-import com.franchisehub.api.entity.User;
+import com.franchisehub.api.model.User;
 import com.franchisehub.api.exception.BadRequestException;
 import com.franchisehub.api.exception.ResourceNotFoundException;
 import com.franchisehub.api.repository.UserRepository;

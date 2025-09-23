@@ -1,4 +1,4 @@
-package com.franchisehub.api.entity;
+package com.franchisehub.api.model;
 
 import jakarta.persistence.*;
 import lombok.Data;

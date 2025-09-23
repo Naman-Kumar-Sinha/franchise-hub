@@ -1,6 +1,6 @@
 package com.franchisehub.api.repository;
 
-import com.franchisehub.api.entity.PaymentTransaction;
+import com.franchisehub.api.model.PaymentTransaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -97,4 +97,16 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     @Query("SELECT DATE(pt.createdAt), SUM(pt.amount) FROM PaymentTransaction pt WHERE " +
            "pt.status = 'SUCCESS' AND pt.createdAt >= :since GROUP BY DATE(pt.createdAt)")
     List<Object[]> getDailyRevenue(@Param("since") LocalDateTime since);
+
+    // Additional methods needed by PaymentService
+    long countByStatus(PaymentTransaction.TransactionStatus status);
+
+    @Query("SELECT SUM(pt.amount) FROM PaymentTransaction pt WHERE pt.status = :status")
+    BigDecimal sumAmountByStatus(@Param("status") PaymentTransaction.TransactionStatus status);
+
+    @Query("SELECT pt FROM PaymentTransaction pt WHERE pt.createdAt >= :since ORDER BY pt.createdAt DESC")
+    List<PaymentTransaction> findTransactionsCreatedSince(@Param("since") LocalDateTime since);
+
+    @Query("SELECT COUNT(pt) FROM PaymentTransaction pt WHERE pt.createdAt >= :since")
+    long countTransactionsCreatedSince(@Param("since") LocalDateTime since);
 }

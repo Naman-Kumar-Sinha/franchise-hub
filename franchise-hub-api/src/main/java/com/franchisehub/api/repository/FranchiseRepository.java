@@ -1,6 +1,6 @@
 package com.franchisehub.api.repository;
 
-import com.franchisehub.api.entity.Franchise;
+import com.franchisehub.api.model.Franchise;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -70,4 +70,28 @@ public interface FranchiseRepository extends JpaRepository<Franchise, String> {
 
     @Query("SELECT f.category, COUNT(f) FROM Franchise f WHERE f.status = 'ACTIVE' GROUP BY f.category")
     List<Object[]> getFranchiseCountByCategory();
+
+    // Additional methods needed by FranchiseService
+    @Query("SELECT f FROM Franchise f WHERE " +
+           "f.status = 'ACTIVE' AND " +
+           "(LOWER(f.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+           "LOWER(f.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    Page<Franchise> searchFranchises(@Param("searchTerm") String searchTerm, Pageable pageable);
+
+    @Query("SELECT f FROM Franchise f WHERE " +
+           "f.status = 'ACTIVE' AND " +
+           "(:minInvestment IS NULL OR f.initialInvestment.min >= :minInvestment) AND " +
+           "(:maxInvestment IS NULL OR f.initialInvestment.max <= :maxInvestment)")
+    Page<Franchise> findByInvestmentRange(
+        @Param("minInvestment") BigDecimal minInvestment,
+        @Param("maxInvestment") BigDecimal maxInvestment,
+        Pageable pageable
+    );
+
+    long countByBusinessOwnerId(String businessOwnerId);
+
+    long countByBusinessOwnerIdAndStatus(String businessOwnerId, Franchise.FranchiseStatus status);
+
+    @Query("SELECT f FROM Franchise f WHERE f.createdAt >= :since ORDER BY f.createdAt DESC")
+    List<Franchise> findFranchisesCreatedSince(@Param("since") LocalDateTime since);
 }

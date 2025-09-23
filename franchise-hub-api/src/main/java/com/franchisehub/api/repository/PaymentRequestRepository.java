@@ -1,6 +1,6 @@
 package com.franchisehub.api.repository;
 
-import com.franchisehub.api.entity.PaymentRequest;
+import com.franchisehub.api.model.PaymentRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

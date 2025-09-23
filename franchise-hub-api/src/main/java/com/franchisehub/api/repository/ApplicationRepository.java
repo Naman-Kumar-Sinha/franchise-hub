@@ -1,6 +1,6 @@
 package com.franchisehub.api.repository;
 
-import com.franchisehub.api.entity.Application;
+import com.franchisehub.api.model.Application;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -86,4 +86,25 @@ public interface ApplicationRepository extends JpaRepository<Application, String
 
     @Query("SELECT DATE(a.submittedAt), COUNT(a) FROM Application a WHERE a.submittedAt >= :since GROUP BY DATE(a.submittedAt)")
     List<Object[]> getApplicationCountByDate(@Param("since") LocalDateTime since);
+
+    // Additional methods needed by ApplicationService
+    @Query("SELECT a FROM Application a WHERE a.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId)")
+    Page<Application> findApplicationsForBusinessOwner(@Param("businessOwnerId") String businessOwnerId, Pageable pageable);
+
+    @Query("SELECT a FROM Application a WHERE a.applicantId = :applicantId AND a.franchiseId = :franchiseId AND a.isActive = true")
+    List<Application> findByApplicantIdAndFranchiseIdAndIsActiveTrue(@Param("applicantId") String applicantId, @Param("franchiseId") String franchiseId);
+
+    Page<Application> findByApplicantIdAndStatus(String applicantId, Application.ApplicationStatus status, Pageable pageable);
+
+    long countByStatus(Application.ApplicationStatus status);
+
+    long countByFranchiseId(String franchiseId);
+
+    @Query("SELECT a FROM Application a WHERE a.submittedAt >= :since ORDER BY a.submittedAt DESC")
+    List<Application> findApplicationsCreatedSince(@Param("since") LocalDateTime since);
+
+    @Query("SELECT COUNT(a) FROM Application a WHERE a.submittedAt >= :since")
+    long countApplicationsCreatedSince(@Param("since") LocalDateTime since);
+
 }

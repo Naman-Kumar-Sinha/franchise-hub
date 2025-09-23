@@ -1,6 +1,6 @@
 package com.franchisehub.api.config;
 
-import com.franchisehub.api.entity.*;
+import com.franchisehub.api.model.*;
 import com.franchisehub.api.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,6 +1,6 @@
 package com.franchisehub.api.repository;
 
-import com.franchisehub.api.entity.Notification;
+import com.franchisehub.api.model.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -98,4 +98,27 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
 
     @Query("SELECT n.status, COUNT(n) FROM Notification n WHERE n.userId = :userId GROUP BY n.status")
     List<Object[]> getNotificationCountByStatusForUser(@Param("userId") String userId);
+
+    // Additional methods needed by NotificationService
+    long countByStatus(Notification.NotificationStatus status);
+
+    long countByType(Notification.NotificationType type);
+
+    long countByPriority(Notification.NotificationPriority priority);
+
+    @Query("SELECT n FROM Notification n WHERE n.createdAt >= :since ORDER BY n.createdAt DESC")
+    List<Notification> findNotificationsCreatedSince(@Param("since") LocalDateTime since);
+
+    @Modifying
+    @Query("UPDATE Notification n SET n.status = 'READ', n.readAt = :readAt WHERE n.id IN :notificationIds")
+    int markAsReadByIds(@Param("notificationIds") List<String> notificationIds, @Param("readAt") LocalDateTime readAt);
+
+    // Additional methods needed by NotificationService
+    Page<Notification> findByType(Notification.NotificationType type, Pageable pageable);
+
+    Page<Notification> findByPriority(Notification.NotificationPriority priority, Pageable pageable);
+
+    long countByUserId(String userId);
+
+    long countByUserIdAndStatus(String userId, Notification.NotificationStatus status);
 }

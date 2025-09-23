@@ -62,21 +62,13 @@ logging:
 # SpringDoc OpenAPI Configuration
 springdoc:
   api-docs:
-    path: /api-docs
+    path: /v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    path: /swagger-ui/index.html
     operationsSorter: method
     tagsSorter: alpha
-  info:
-    title: FranchiseHub API
-    description: Comprehensive REST API for FranchiseHub Application
-    version: 1.0.0
-    contact:
-      name: FranchiseHub Team
-      email: support@franchisehub.com
-    license:
-      name: MIT License
-      url: https://opensource.org/licenses/MIT
+    disable-swagger-default-url: true
+
 
 # Management Endpoints
 management:
