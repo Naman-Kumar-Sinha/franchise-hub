@@ -45,3 +45,7 @@ build/
 *.temp
 .cache/
 .DS_Store
+
+# Other local DB
+**/*.db
+*.db
