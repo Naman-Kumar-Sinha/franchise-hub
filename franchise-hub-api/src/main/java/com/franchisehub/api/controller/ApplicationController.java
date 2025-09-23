@@ -4,7 +4,6 @@ import com.franchisehub.api.model.Application;
 import com.franchisehub.api.model.ApplicationDocument;
 import com.franchisehub.api.service.ApplicationService;
 import com.franchisehub.api.dto.ApplicationDto;
-import com.franchisehub.api.exception.ResourceNotFoundException;
 import com.franchisehub.api.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

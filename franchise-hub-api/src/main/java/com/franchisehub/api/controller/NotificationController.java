@@ -3,8 +3,6 @@ package com.franchisehub.api.controller;
 import com.franchisehub.api.model.Notification;
 import com.franchisehub.api.service.NotificationService;
 import com.franchisehub.api.dto.NotificationDto;
-import com.franchisehub.api.exception.ResourceNotFoundException;
-import com.franchisehub.api.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

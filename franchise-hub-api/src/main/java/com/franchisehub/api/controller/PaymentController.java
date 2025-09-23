@@ -4,8 +4,6 @@ import com.franchisehub.api.model.PaymentTransaction;
 import com.franchisehub.api.model.PaymentRequest;
 import com.franchisehub.api.service.PaymentService;
 import com.franchisehub.api.dto.PaymentDto;
-import com.franchisehub.api.exception.ResourceNotFoundException;
-import com.franchisehub.api.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

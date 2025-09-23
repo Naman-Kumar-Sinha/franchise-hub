@@ -3,7 +3,6 @@ package com.franchisehub.api.controller;
 import com.franchisehub.api.model.User;
 import com.franchisehub.api.service.UserService;
 import com.franchisehub.api.dto.UserDto;
-import com.franchisehub.api.exception.ResourceNotFoundException;
 import com.franchisehub.api.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
