@@ -75,13 +75,11 @@ public class Franchise {
     @Column(nullable = false)
     private Integer yearEstablished;
 
-    @Column(nullable = false)
+    // Optional: Business unit details
     private Integer totalUnits;
 
-    @Column(nullable = false)
     private Integer franchisedUnits;
 
-    @Column(nullable = false)
     private Integer companyOwnedUnits;
 
     @Embedded

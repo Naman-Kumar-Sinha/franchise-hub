@@ -13,7 +13,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterModule } from '@angular/router';
 
 import { AuthService } from '../../../core/services/auth.service';
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { ApplicationService } from '../../../core/services/application.service';
+import { PaymentService } from '../../../core/services/payment.service';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { PaymentRequest, PaymentRequestStatus } from '../../../core/models/application.model';
 import { PartnershipDetailsDialogComponent } from './partnership-details-dialog.component';
@@ -418,7 +419,8 @@ export class PartnershipsComponent implements OnInit {
 
   constructor(
     private authService: AuthService,
-    private mockDataService: MockDataService,
+    private applicationService: ApplicationService,
+    private paymentService: PaymentService,
     private currencyService: CurrencyService,
     private dialog: MatDialog,
     private router: Router,
@@ -433,7 +435,7 @@ export class PartnershipsComponent implements OnInit {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) return;
 
-    this.mockDataService.getPartnershipsForPartner(currentUser.id).subscribe(partnerships => {
+    this.applicationService.getPartnershipsForPartner(currentUser.id).subscribe(partnerships => {
       this.partnerships = partnerships;
       console.log('🤝 Partnerships loaded:', partnerships.length);
 
@@ -445,7 +447,7 @@ export class PartnershipsComponent implements OnInit {
   private loadPaymentRequestsForPartnerships() {
     this.partnerships.forEach(partnership => {
       if (partnership.application?.id) {
-        this.mockDataService.getPaymentRequestsForApplication(partnership.application.id).subscribe({
+        this.paymentService.getPaymentRequestsForApplication(partnership.application.id).subscribe({
           next: (requests) => {
             this.paymentRequestsMap.set(partnership.id, requests);
             console.log(`💰 Payment requests loaded for partnership ${partnership.id}:`, requests.length);

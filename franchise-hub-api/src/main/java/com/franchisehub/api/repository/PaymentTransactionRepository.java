@@ -109,4 +109,24 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     @Query("SELECT COUNT(pt) FROM PaymentTransaction pt WHERE pt.createdAt >= :since")
     long countTransactionsCreatedSince(@Param("since") LocalDateTime since);
+
+    // Methods for business owner statistics
+    @Query("SELECT COUNT(pt) FROM PaymentTransaction pt WHERE pt.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId)")
+    long countTransactionsForBusinessOwner(@Param("businessOwnerId") String businessOwnerId);
+
+    @Query("SELECT COUNT(pt) FROM PaymentTransaction pt WHERE pt.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId) AND pt.status = :status")
+    long countTransactionsForBusinessOwnerByStatus(@Param("businessOwnerId") String businessOwnerId,
+                                                   @Param("status") PaymentTransaction.TransactionStatus status);
+
+    @Query("SELECT COALESCE(SUM(pt.amount), 0) FROM PaymentTransaction pt WHERE pt.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId) AND pt.status = 'SUCCESS'")
+    BigDecimal getTotalRevenueForBusinessOwner(@Param("businessOwnerId") String businessOwnerId);
+
+    @Query("SELECT COALESCE(SUM(pt.amount), 0) FROM PaymentTransaction pt WHERE pt.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId) AND pt.status = 'SUCCESS' " +
+           "AND pt.createdAt >= :since")
+    BigDecimal getRevenueForBusinessOwnerSince(@Param("businessOwnerId") String businessOwnerId,
+                                               @Param("since") LocalDateTime since);
 }

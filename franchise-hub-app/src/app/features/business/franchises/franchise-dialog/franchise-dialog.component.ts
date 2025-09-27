@@ -13,6 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { Franchise, FranchiseCategory, FranchiseFormData } from '../../../../core/models/franchise.model';
 import { MockDataService } from '../../../../core/services/mock-data.service';
+import { FranchiseService } from '../../../../core/services/franchise.service';
 
 export interface FranchiseDialogData {
   franchise?: Franchise;
@@ -113,9 +114,9 @@ export interface FranchiseDialogData {
                 <div class="form-row">
                   <mat-form-field appearance="outline">
                     <mat-label>Franchise Fee</mat-label>
-                    <input matInput type="number" formControlName="franchiseFee" 
+                    <input matInput type="number" formControlName="franchiseFee"
                            placeholder="0" min="0">
-                    <span matPrefix>$</span>
+                    <span matPrefix>₹</span>
                     <mat-error *ngIf="financialGroup.get('franchiseFee')?.hasError('required')">
                       Franchise fee is required
                     </mat-error>
@@ -148,9 +149,9 @@ export interface FranchiseDialogData {
 
                   <mat-form-field appearance="outline">
                     <mat-label>Liquid Capital Required</mat-label>
-                    <input matInput type="number" formControlName="liquidCapitalRequired" 
+                    <input matInput type="number" formControlName="liquidCapitalRequired"
                            placeholder="0" min="0">
-                    <span matPrefix>$</span>
+                    <span matPrefix>₹</span>
                     <mat-error *ngIf="financialGroup.get('liquidCapitalRequired')?.hasError('required')">
                       Liquid capital requirement is required
                     </mat-error>
@@ -160,9 +161,9 @@ export interface FranchiseDialogData {
                 <div class="form-row">
                   <mat-form-field appearance="outline">
                     <mat-label>Net Worth Required</mat-label>
-                    <input matInput type="number" formControlName="netWorthRequired" 
+                    <input matInput type="number" formControlName="netWorthRequired"
                            placeholder="0" min="0">
-                    <span matPrefix>$</span>
+                    <span matPrefix>₹</span>
                     <mat-error *ngIf="financialGroup.get('netWorthRequired')?.hasError('required')">
                       Net worth requirement is required
                     </mat-error>
@@ -182,9 +183,9 @@ export interface FranchiseDialogData {
                 <div class="form-row">
                   <mat-form-field appearance="outline">
                     <mat-label>Minimum Investment</mat-label>
-                    <input matInput type="number" formControlName="min" 
+                    <input matInput type="number" formControlName="min"
                            placeholder="0" min="0">
-                    <span matPrefix>$</span>
+                    <span matPrefix>₹</span>
                     <mat-error *ngIf="investmentGroup.get('min')?.hasError('required')">
                       Minimum investment is required
                     </mat-error>
@@ -192,12 +193,10 @@ export interface FranchiseDialogData {
 
                   <mat-form-field appearance="outline">
                     <mat-label>Maximum Investment</mat-label>
-                    <input matInput type="number" formControlName="max" 
+                    <input matInput type="number" formControlName="max"
                            placeholder="0" min="0">
-                    <span matPrefix>$</span>
-                    <mat-error *ngIf="investmentGroup.get('max')?.hasError('required')">
-                      Maximum investment is required
-                    </mat-error>
+                    <span matPrefix>₹</span>
+                    <!-- Maximum investment is now optional -->
                     <mat-error *ngIf="investmentGroup.hasError('invalidRange')">
                       Maximum must be greater than minimum
                     </mat-error>
@@ -408,6 +407,7 @@ export class FranchiseDialogComponent implements OnInit {
     private dialogRef: MatDialogRef<FranchiseDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: FranchiseDialogData,
     private mockDataService: MockDataService,
+    private franchiseService: FranchiseService,
     private snackBar: MatSnackBar
   ) {}
 
@@ -442,7 +442,7 @@ export class FranchiseDialogComponent implements OnInit {
       }),
       investment: this.fb.group({
         min: ['', [Validators.required, Validators.min(0)]],
-        max: ['', [Validators.required, Validators.min(0)]]
+        max: ['', [Validators.min(0)]]  // Made optional
       }, { validators: this.investmentRangeValidator }),
       requirements: this.fb.group({
         experience: [''],
@@ -517,15 +517,15 @@ export class FranchiseDialogComponent implements OnInit {
 
       if (this.data.mode === 'edit' && this.data.franchise) {
         // Edit mode: update existing franchise
-        const updatedFranchise: Franchise = {
-          ...this.data.franchise,
-          ...this.buildFranchiseDataForUpdate(),
-          updatedAt: new Date()
-        };
+        const formData = this.buildFranchiseData();
 
-        this.mockDataService.updateFranchise(updatedFranchise).subscribe({
+        console.log('🚀 Updating franchise with data:', formData);
+
+        // Use FranchiseService which handles hybrid authentication strategy
+        this.franchiseService.updateFranchise(this.data.franchise.id, formData).subscribe({
           next: (franchise) => {
             this.isLoading = false;
+            console.log('✅ Franchise updated successfully:', franchise);
             this.snackBar.open('Franchise updated successfully!', 'Close', {
               duration: 3000,
               horizontalPosition: 'right',
@@ -535,20 +535,24 @@ export class FranchiseDialogComponent implements OnInit {
           },
           error: (error) => {
             this.isLoading = false;
+            console.error('❌ Error updating franchise:', error);
             this.snackBar.open('Error updating franchise. Please try again.', 'Close', {
               duration: 5000,
               horizontalPosition: 'right',
               verticalPosition: 'top'
             });
-            console.error('Error updating franchise:', error);
           }
         });
       } else {
         // Create mode: create new franchise
         const formData = this.buildFranchiseData();
-        this.mockDataService.createFranchise(formData).subscribe({
+        console.log('🚀 Creating franchise with data:', formData);
+
+        // Use FranchiseService which handles hybrid authentication strategy
+        this.franchiseService.createFranchise(formData).subscribe({
           next: (newFranchise) => {
             this.isLoading = false;
+            console.log('✅ Franchise created successfully:', newFranchise);
             this.snackBar.open('Franchise created successfully!', 'Close', {
               duration: 3000,
               horizontalPosition: 'right',
@@ -558,12 +562,12 @@ export class FranchiseDialogComponent implements OnInit {
           },
           error: (error) => {
             this.isLoading = false;
+            console.error('❌ Error creating franchise:', error);
             this.snackBar.open('Error creating franchise. Please try again.', 'Close', {
               duration: 5000,
               horizontalPosition: 'right',
               verticalPosition: 'top'
             });
-            console.error('Error creating franchise:', error);
           }
         });
       }

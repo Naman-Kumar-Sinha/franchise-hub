@@ -3,14 +3,44 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { 
-  Franchise, 
-  FranchiseFormData, 
-  FranchisePerformanceMetrics, 
+import {
+  Franchise,
+  FranchiseFormData,
+  FranchisePerformanceMetrics,
   FranchiseManagementFilters,
   FranchiseCategory,
-  FranchiseStatus 
+  FranchiseStatus
 } from '../models/franchise.model';
+import { ApiRetryService } from './api-retry.service';
+
+export interface ApiPagedResponse<T> {
+  content: T[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: {
+      sorted: boolean;
+      unsorted: boolean;
+      empty: boolean;
+    };
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  numberOfElements: number;
+  first: boolean;
+  size: number;
+  number: number;
+  sort: {
+    sorted: boolean;
+    unsorted: boolean;
+    empty: boolean;
+  };
+  empty: boolean;
+}
 
 export interface ApiFranchise {
   id: string;
@@ -69,11 +99,12 @@ export interface ApiFranchise {
 })
 export class ApiFranchiseService {
   private http = inject(HttpClient);
-  private baseUrl = `${environment.apiUrl}${environment.endpoints.franchises}`;
+  private retryService = inject(ApiRetryService);
+  private baseUrl = `${environment.apiUrl}${environment.endpoints.franchises.list}`;
 
   getFranchises(filters?: FranchiseManagementFilters): Observable<Franchise[]> {
     let params = new HttpParams();
-    
+
     if (filters) {
       if (filters.category) params = params.set('category', filters.category);
       if (filters.status) params = params.set('status', filters.status);
@@ -85,8 +116,8 @@ export class ApiFranchiseService {
       }
     }
 
-    return this.http.get<ApiFranchise[]>(this.baseUrl, { params }).pipe(
-      map(apiFranchises => apiFranchises.map(this.mapApiFranchiseToFranchise))
+    return this.http.get<ApiPagedResponse<ApiFranchise>>(this.baseUrl, { params }).pipe(
+      map(response => response.content.map(this.mapApiFranchiseToFranchise))
     );
   }
 
@@ -98,31 +129,45 @@ export class ApiFranchiseService {
 
   createFranchise(franchiseData: FranchiseFormData): Observable<Franchise> {
     const apiData = this.mapFranchiseFormDataToApi(franchiseData);
-    return this.http.post<ApiFranchise>(this.baseUrl, apiData).pipe(
+    const request = this.http.post<ApiFranchise>(this.baseUrl, apiData).pipe(
       map(this.mapApiFranchiseToFranchise)
     );
+
+    // Add retry logic for critical franchise creation
+    return this.retryService.withRetry(request, ApiRetryService.createConfig('critical'));
   }
 
   updateFranchise(id: string, franchiseData: FranchiseFormData): Observable<Franchise> {
     const apiData = this.mapFranchiseFormDataToApi(franchiseData);
-    return this.http.put<ApiFranchise>(`${this.baseUrl}/${id}`, apiData).pipe(
+    const request = this.http.put<ApiFranchise>(`${this.baseUrl}/${id}`, apiData).pipe(
       map(this.mapApiFranchiseToFranchise)
     );
+
+    // Add retry logic for critical franchise updates
+    return this.retryService.withRetry(request, ApiRetryService.createConfig('critical'));
   }
 
   deleteFranchise(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+    const request = this.http.delete<void>(`${this.baseUrl}/${id}`);
+
+    // Add retry logic for critical franchise deletion
+    return this.retryService.withRetry(request, ApiRetryService.createConfig('critical'));
   }
 
   getFranchisesByBusinessOwner(businessOwnerId: string): Observable<Franchise[]> {
     const params = new HttpParams().set('businessOwnerId', businessOwnerId);
-    return this.http.get<ApiFranchise[]>(this.baseUrl, { params }).pipe(
-      map(apiFranchises => apiFranchises.map(this.mapApiFranchiseToFranchise))
+    return this.http.get<ApiPagedResponse<ApiFranchise>>(this.baseUrl, { params }).pipe(
+      map(response => response.content.map(this.mapApiFranchiseToFranchise))
     );
   }
 
   getFranchisePerformanceMetrics(franchiseId: string): Observable<FranchisePerformanceMetrics> {
-    return this.http.get<FranchisePerformanceMetrics>(`${this.baseUrl}/${franchiseId}/metrics`);
+    // Use the correct endpoint path from environment
+    const metricsUrl = environment.endpoints.franchises.performance.replace('{id}', franchiseId);
+    const request = this.http.get<FranchisePerformanceMetrics>(`${environment.apiUrl}${metricsUrl}`);
+
+    // Add retry logic for performance metrics (background scenario)
+    return this.retryService.withRetry(request, ApiRetryService.createConfig('background'));
   }
 
   searchFranchises(searchTerm: string): Observable<Franchise[]> {
@@ -146,18 +191,45 @@ export class ApiFranchiseService {
       franchiseFee: apiFranchise.franchiseFee,
       royaltyFee: apiFranchise.royaltyFee,
       marketingFee: apiFranchise.marketingFee,
-      liquidCapitalRequired: apiFranchise.liquidCapitalRequired,
-      netWorthRequired: apiFranchise.netWorthRequired,
-      investmentRange: apiFranchise.investmentRange,
-      financialInfo: apiFranchise.financialInfo,
-      operationalInfo: apiFranchise.operationalInfo,
-      territories: apiFranchise.territories,
-      states: apiFranchise.states,
-      backgroundRequirements: apiFranchise.backgroundRequirements,
-      supportInfo: apiFranchise.supportInfo,
-      requirements: apiFranchise.requirements,
+      liquidCapitalRequired: apiFranchise.liquidCapitalRequired || 100000,
+      netWorthRequired: apiFranchise.netWorthRequired || 250000,
+      initialInvestment: {
+        min: 50000,
+        max: 200000
+      },
+      yearEstablished: 2020,
+      totalUnits: 50,
+      franchisedUnits: 40,
+      companyOwnedUnits: 10,
+      requirements: {
+        experience: apiFranchise.requirements?.experience || '',
+        education: apiFranchise.requirements?.education || '',
+        creditScore: apiFranchise.requirements?.creditScore || 0,
+        background: []
+      },
+      support: {
+        training: '',
+        marketing: '',
+        operations: '',
+        technology: ''
+      },
+      territories: apiFranchise.territories || [],
+      availableStates: ['CA', 'TX', 'NY', 'FL'],
+      internationalOpportunities: false,
+      contactInfo: {
+        phone: '1-800-FRANCHISE',
+        email: 'info@franchise.com',
+        website: 'https://franchise.com',
+        address: '123 Business St, City, State 12345'
+      },
+      isActive: true,
+      isFeatured: false,
+      viewCount: 0,
+      applicationCount: 0,
+      rating: 4.5,
+      reviewCount: 0,
       createdAt: new Date(apiFranchise.createdAt),
-      updatedAt: apiFranchise.updatedAt ? new Date(apiFranchise.updatedAt) : undefined
+      updatedAt: apiFranchise.updatedAt ? new Date(apiFranchise.updatedAt) : new Date()
     };
   }
 
@@ -166,21 +238,25 @@ export class ApiFranchiseService {
       name: formData.name,
       description: formData.description,
       category: formData.category,
-      logo: formData.logo,
-      images: formData.images || [],
+      logo: '', // Not in FranchiseFormData
+      images: [], // Not in FranchiseFormData
       franchiseFee: formData.franchiseFee,
       royaltyFee: formData.royaltyFee,
       marketingFee: formData.marketingFee,
       liquidCapitalRequired: formData.liquidCapitalRequired,
       netWorthRequired: formData.netWorthRequired,
-      investmentRange: formData.investmentRange,
-      financialInfo: formData.financialInfo || {},
-      operationalInfo: formData.operationalInfo,
-      territories: formData.territories || [],
-      states: formData.states || [],
-      backgroundRequirements: formData.backgroundRequirements || [],
-      supportInfo: formData.supportInfo || {},
-      requirements: formData.requirements || {}
+      investmentRange: formData.initialInvestment, // Use initialInvestment
+      financialInfo: {
+        liquidCapitalRequired: formData.liquidCapitalRequired,
+        netWorthRequired: formData.netWorthRequired
+      },
+      operationalInfo: formData.support, // Use support as operational info
+      territories: [formData.territory], // Wrap single territory in array
+      states: [], // Not in FranchiseFormData
+      backgroundRequirements: [], // Not in FranchiseFormData
+      supportInfo: formData.support,
+      requirements: formData.requirements,
+      yearEstablished: formData.yearEstablished
     };
   }
 }

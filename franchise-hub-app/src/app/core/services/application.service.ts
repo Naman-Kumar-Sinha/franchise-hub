@@ -1,16 +1,17 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { MockDataService } from './mock-data.service';
 import { ApiApplicationService } from './api-application.service';
-import { 
+import {
   Application,
   ApplicationCreateData,
   ApplicationReviewData,
   ApplicationDocument,
-  DocumentType
+  DocumentType,
+  FranchiseApplication
 } from '../models/application.model';
 
 @Injectable({
@@ -23,15 +24,15 @@ export class ApplicationService {
 
   getApplications(filters?: any): Observable<Application[]> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.getApplications(filters);
+      return this.mockDataService.getApplications();
     } else {
       return this.apiApplicationService.getApplications(filters).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplications(filters)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplications()))
       );
     }
   }
 
-  getApplicationById(id: string): Observable<Application> {
+  getApplicationById(id: string): Observable<Application | null> {
     if (this.shouldUseMockService()) {
       return this.mockDataService.getApplicationById(id);
     } else {
@@ -53,10 +54,29 @@ export class ApplicationService {
 
   updateApplication(id: string, applicationData: Partial<ApplicationCreateData>): Observable<Application> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.updateApplication(id, applicationData);
+      // MockDataService doesn't have updateApplication, so we'll simulate it
+      return this.mockDataService.getApplicationById(id).pipe(
+        switchMap(app => {
+          if (app) {
+            const updatedApp = { ...app, ...applicationData, updatedAt: new Date() };
+            return of(updatedApp as Application);
+          }
+          throw new Error('Application not found');
+        })
+      );
     } else {
       return this.apiApplicationService.updateApplication(id, applicationData).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.updateApplication(id, applicationData)))
+        catchError(error => this.handleApiError(error, () =>
+          this.mockDataService.getApplicationById(id).pipe(
+            switchMap(app => {
+              if (app) {
+                const updatedApp = { ...app, ...applicationData, updatedAt: new Date() };
+                return of(updatedApp as Application);
+              }
+              throw new Error('Application not found');
+            })
+          )
+        ))
       );
     }
   }
@@ -83,50 +103,73 @@ export class ApplicationService {
 
   rejectApplication(id: string, reason: string, notes?: string): Observable<Application> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.rejectApplication(id, reason, notes);
+      return this.mockDataService.rejectApplication(id, reason);
     } else {
       return this.apiApplicationService.rejectApplication(id, reason, notes).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.rejectApplication(id, reason, notes)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.rejectApplication(id, reason)))
       );
     }
   }
 
   uploadDocument(applicationId: string, file: File, documentType: DocumentType): Observable<ApplicationDocument> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.uploadDocument(applicationId, file, documentType);
+      // Mock implementation - simulate document upload
+      const mockDoc: ApplicationDocument = {
+        id: 'doc_' + Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        type: documentType,
+        url: URL.createObjectURL(file),
+        uploadedAt: new Date(),
+        size: file.size,
+        isRequired: false
+      };
+      return of(mockDoc);
     } else {
       return this.apiApplicationService.uploadDocument(applicationId, file, documentType).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.uploadDocument(applicationId, file, documentType)))
+        catchError(error => this.handleApiError(error, () => {
+          const mockDoc: ApplicationDocument = {
+            id: 'doc_' + Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            type: documentType,
+            url: URL.createObjectURL(file),
+            uploadedAt: new Date(),
+            size: file.size,
+            isRequired: false
+          };
+          return of(mockDoc);
+        }))
       );
     }
   }
 
   getApplicationDocuments(applicationId: string): Observable<ApplicationDocument[]> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.getApplicationDocuments(applicationId);
+      // Mock implementation - return empty array for now
+      return of([]);
     } else {
       return this.apiApplicationService.getApplicationDocuments(applicationId).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationDocuments(applicationId)))
+        catchError(error => this.handleApiError(error, () => of([])))
       );
     }
   }
 
   deleteApplication(id: string): Observable<void> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.deleteApplication(id);
+      // Mock implementation - simulate deletion
+      return of(undefined);
     } else {
       return this.apiApplicationService.deleteApplication(id).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.deleteApplication(id)))
+        catchError(error => this.handleApiError(error, () => of(undefined)))
       );
     }
   }
 
   getApplicationsByApplicant(applicantId: string): Observable<Application[]> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.getApplicationsByApplicant(applicantId);
+      return this.mockDataService.getApplicationsByPartner(applicantId);
     } else {
       return this.apiApplicationService.getApplicationsByApplicant(applicantId).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationsByApplicant(applicantId)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationsByPartner(applicantId)))
       );
     }
   }
@@ -194,5 +237,38 @@ export class ApplicationService {
 
   isUsingRealApi(): boolean {
     return !this.shouldUseMockService();
+  }
+
+  // Methods that components expect
+  getApplicationsForBusiness(businessId: string): Observable<FranchiseApplication[]> {
+    if (this.shouldUseMockService()) {
+      return this.mockDataService.getApplicationsForBusiness(businessId);
+    } else {
+      // For API, we'll use the general getApplications with filters
+      return this.apiApplicationService.getApplications({ businessId }).pipe(
+        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationsForBusiness(businessId)))
+      );
+    }
+  }
+
+  getApplicationsForPartner(partnerId: string): Observable<FranchiseApplication[]> {
+    if (this.shouldUseMockService()) {
+      return this.mockDataService.getApplicationsForPartner(partnerId);
+    } else {
+      return this.apiApplicationService.getApplications({ partnerId }).pipe(
+        catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationsForPartner(partnerId)))
+      );
+    }
+  }
+
+  getPartnershipsForPartner(partnerId: string): Observable<any[]> {
+    if (this.shouldUseMockService()) {
+      return this.mockDataService.getPartnershipsForPartner(partnerId);
+    } else {
+      // For API, we'll simulate partnerships from applications
+      return this.apiApplicationService.getApplications({ partnerId }).pipe(
+        catchError(error => this.handleApiError(error, () => this.mockDataService.getPartnershipsForPartner(partnerId)))
+      );
+    }
   }
 }

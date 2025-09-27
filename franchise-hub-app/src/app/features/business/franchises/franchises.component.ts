@@ -24,7 +24,7 @@ import { SelectionModel } from '@angular/cdk/collections';
 import { FranchiseDialogComponent, FranchiseDialogData } from './franchise-dialog/franchise-dialog.component';
 
 import { Franchise, FranchiseCategory, FranchiseFormData, FranchisePerformanceMetrics, FranchiseManagementFilters } from '../../../core/models/franchise.model';
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { FranchiseService } from '../../../core/services/franchise.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { of, Observable } from 'rxjs';
@@ -217,7 +217,7 @@ import { FranchiseDetailsDialogComponent } from './franchise-details-dialog/fran
               <ng-container matColumnDef="performance">
                 <th mat-header-cell *matHeaderCellDef>Performance</th>
                 <td mat-cell *matCellDef="let franchise">
-                  <div class="performance-metrics" *ngIf="getPerformanceMetrics(franchise.id) | async as metrics">
+                  <div class="performance-metrics" *ngIf="getPerformanceMetrics(franchise.id) as metrics">
                     <div class="metric">
                       <span class="metric-label">Applications:</span>
                       <span class="metric-value">{{metrics.totalApplications}}</span>
@@ -231,6 +231,9 @@ import { FranchiseDetailsDialogComponent } from './franchise-details-dialog/fran
                       [value]="metrics.conversionRate"
                       [color]="metrics.conversionRate > 50 ? 'primary' : 'warn'">
                     </mat-progress-bar>
+                  </div>
+                  <div class="performance-loading" *ngIf="!getPerformanceMetrics(franchise.id)">
+                    <span>Loading metrics...</span>
                   </div>
                 </td>
               </ng-container>
@@ -497,7 +500,7 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   // Data properties
   franchises: Franchise[] = [];
   currentUser: any;
-  performanceCache = new Map<string, FranchisePerformanceMetrics>();
+  performanceCache = new Map<string, FranchiseMetrics>();
 
   // Category options
   categories = [
@@ -514,7 +517,7 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   ];
 
   constructor(
-    private mockDataService: MockDataService,
+    private franchiseService: FranchiseService,
     private authService: AuthService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
@@ -541,18 +544,19 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   private loadFranchises() {
     if (this.currentUser) {
       console.log('🏢 Business Franchises - Current user ID:', this.currentUser.id);
-      // Subscribe to reactive franchise data for real-time updates
-      this.mockDataService.franchises$.subscribe(allFranchises => {
-        console.log('🏢 Business Franchises - All franchises received:', allFranchises.length);
-        console.log('🏢 Business Franchises - All franchise names:', allFranchises.map(f => f.name));
-        console.log('🏢 Business Franchises - All franchise businessOwnerIds:', allFranchises.map(f => ({ name: f.name, businessOwnerId: f.businessOwnerId })));
+      // Use hybrid franchise service for real-time updates
+      const filters: FranchiseManagementFilters = {
+        businessOwnerId: this.currentUser.id
+      };
 
-        this.franchises = allFranchises
-          .filter(f => f.businessOwnerId === this.currentUser.id)
+      this.franchiseService.getFranchises(filters).subscribe(franchises => {
+        console.log('🏢 Business Franchises - Franchises received:', franchises.length);
+        console.log('🏢 Business Franchises - Franchise names:', franchises.map(f => f.name));
+
+        this.franchises = franchises
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort newest first
 
         console.log('🏢 Business Franchises - Filtered franchises for user:', this.franchises.length);
-        console.log('🏢 Business Franchises - Filtered franchise names:', this.franchises.map(f => f.name));
 
         this.dataSource.data = this.franchises;
         this.loadPerformanceMetrics();
@@ -562,9 +566,26 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
   private loadPerformanceMetrics() {
     this.franchises.forEach(franchise => {
-      this.mockDataService.getFranchisePerformanceMetrics(franchise.id).subscribe(metrics => {
-        this.performanceCache.set(franchise.id, metrics);
-      });
+      // Only load if not already cached
+      if (!this.performanceCache.has(franchise.id)) {
+        this.franchiseService.getFranchisePerformanceMetrics(franchise.id).pipe(
+          catchError((error: any) => {
+            console.error('Error loading performance metrics for franchise:', franchise.id, error);
+            // Return default metrics on error
+            return of<FranchiseMetrics>({
+              totalApplications: 0,
+              approvedApplications: 0,
+              conversionRate: 0,
+              totalRevenue: 0,
+              averageTimeToPartnership: 0,
+              monthlyGrowth: 0,
+              activePartnerships: 0
+            });
+          })
+        ).subscribe(metrics => {
+          this.performanceCache.set(franchise.id, metrics);
+        });
+      }
     });
   }
 
@@ -617,7 +638,7 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   // Bulk actions
   bulkActivate() {
     const selectedIds = this.selection.selected.map(f => f.id);
-    this.mockDataService.bulkUpdateFranchiseStatus(selectedIds, true).subscribe(() => {
+    this.franchiseService.bulkUpdateFranchiseStatus(selectedIds, true).subscribe(() => {
       this.selection.selected.forEach(franchise => {
         franchise.isActive = true;
       });
@@ -628,7 +649,7 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
   bulkDeactivate() {
     const selectedIds = this.selection.selected.map(f => f.id);
-    this.mockDataService.bulkUpdateFranchiseStatus(selectedIds, false).subscribe(() => {
+    this.franchiseService.bulkUpdateFranchiseStatus(selectedIds, false).subscribe(() => {
       this.selection.selected.forEach(franchise => {
         franchise.isActive = false;
       });
@@ -711,12 +732,13 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
   deleteFranchise(franchise: Franchise) {
     if (confirm(`Are you sure you want to delete "${franchise.name}"? This action cannot be undone.`)) {
-      this.mockDataService.deleteFranchise(franchise.id).subscribe(success => {
-        if (success) {
+      this.franchiseService.deleteFranchise(franchise.id).subscribe({
+        next: () => {
           this.franchises = this.franchises.filter(f => f.id !== franchise.id);
           this.applyFilters();
           this.showSnackBar(`${franchise.name} has been deleted`);
-        } else {
+        },
+        error: () => {
           this.showSnackBar(`Error deleting ${franchise.name}. Please try again.`);
         }
       });
@@ -724,7 +746,7 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   }
 
   toggleFranchiseStatus(franchise: Franchise, isActive: boolean) {
-    this.mockDataService.updateFranchiseStatus(franchise.id, isActive).subscribe(() => {
+    this.franchiseService.updateFranchiseStatus(franchise.id, isActive).subscribe(() => {
       franchise.isActive = isActive;
       const status = isActive ? 'activated' : 'deactivated';
       this.showSnackBar(`${franchise.name} has been ${status}`);
@@ -732,35 +754,9 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   }
 
   // Utility methods
-  getPerformanceMetrics(franchiseId: string): Observable<FranchiseMetrics> {
-    try {
-      return this.mockDataService.getFranchisePerformanceMetrics(franchiseId).pipe(
-        catchError((error: any) => {
-          console.error('Error getting performance metrics for franchise:', franchiseId, error);
-          // Return default metrics on error
-          return of<FranchiseMetrics>({
-            totalApplications: 0,
-            approvedApplications: 0,
-            conversionRate: 0,
-            totalRevenue: 0,
-            averageTimeToPartnership: 0,
-            monthlyGrowth: 0,
-            activePartnerships: 0
-          });
-        })
-      );
-    } catch (error) {
-      console.error('Error in getPerformanceMetrics:', error);
-      return of<FranchiseMetrics>({
-        totalApplications: 0,
-        approvedApplications: 0,
-        conversionRate: 0,
-        totalRevenue: 0,
-        averageTimeToPartnership: 0,
-        monthlyGrowth: 0,
-        activePartnerships: 0
-      });
-    }
+  getPerformanceMetrics(franchiseId: string): FranchiseMetrics | null {
+    // Return cached metrics to prevent infinite API calls
+    return this.performanceCache.get(franchiseId) || null;
   }
 
   getCategoryLabel(category: FranchiseCategory): string {

@@ -81,7 +81,7 @@ public class FranchiseDto {
         @Positive(message = "Marketing fee must be positive")
         private BigDecimal marketingFee;
 
-        @NotNull(message = "Initial investment range is required")
+        // Optional: Initial investment range
         private Franchise.InvestmentRange initialInvestment;
 
         @NotNull(message = "Liquid capital required is required")
@@ -96,13 +96,11 @@ public class FranchiseDto {
         @NotNull(message = "Year established is required")
         private Integer yearEstablished;
 
-        @NotNull(message = "Total units is required")
+        // Optional: Business unit details
         private Integer totalUnits;
 
-        @NotNull(message = "Franchised units is required")
         private Integer franchisedUnits;
 
-        @NotNull(message = "Company owned units is required")
         private Integer companyOwnedUnits;
 
         private Franchise.FranchiseRequirements requirements;
@@ -170,5 +168,18 @@ public class FranchiseDto {
 
         private Franchise.FranchiseStatus status;
         private Franchise.FranchiseCategory category;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PerformanceMetrics {
+        private Integer totalApplications;
+        private Integer approvedApplications;
+        private Double conversionRate;
+        private BigDecimal totalRevenue;
+        private Integer averageTimeToPartnership;
+        private Double monthlyGrowth;
+        private Integer activePartnerships;
     }
 }

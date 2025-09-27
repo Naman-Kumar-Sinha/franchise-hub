@@ -107,4 +107,17 @@ public interface ApplicationRepository extends JpaRepository<Application, String
     @Query("SELECT COUNT(a) FROM Application a WHERE a.submittedAt >= :since")
     long countApplicationsCreatedSince(@Param("since") LocalDateTime since);
 
+    // Count methods for business owner statistics
+    @Query("SELECT COUNT(a) FROM Application a WHERE a.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId)")
+    long countApplicationsForBusinessOwner(@Param("businessOwnerId") String businessOwnerId);
+
+    @Query("SELECT COUNT(a) FROM Application a WHERE a.franchiseId IN " +
+           "(SELECT f.id FROM Franchise f WHERE f.businessOwnerId = :businessOwnerId) " +
+           "AND a.status = :status")
+    long countApplicationsForBusinessOwnerByStatus(
+        @Param("businessOwnerId") String businessOwnerId,
+        @Param("status") Application.ApplicationStatus status
+    );
+
 }

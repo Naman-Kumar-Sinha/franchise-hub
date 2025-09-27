@@ -1,5 +1,6 @@
 package com.franchisehub.api.service;
 
+import com.franchisehub.api.dto.FranchiseDto;
 import com.franchisehub.api.model.Franchise;
 import com.franchisehub.api.model.User;
 import com.franchisehub.api.repository.FranchiseRepository;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -134,17 +136,20 @@ public class FranchiseService {
             throw new BadRequestException("User must have BUSINESS role to create franchises");
         }
 
+        // Generate ID
+        franchise.setId(java.util.UUID.randomUUID().toString());
+
         // Set business owner information
         franchise.setBusinessOwnerId(businessOwnerId);
         franchise.setBusinessOwnerName(businessOwner.getFirstName() + " " + businessOwner.getLastName());
-        
+
         // Set timestamps
         franchise.setCreatedAt(LocalDateTime.now());
         franchise.setUpdatedAt(LocalDateTime.now());
-        
+
         // Set default status if not provided
         if (franchise.getStatus() == null) {
-            franchise.setStatus(Franchise.FranchiseStatus.PENDING);
+            franchise.setStatus(Franchise.FranchiseStatus.ACTIVE);
         }
 
         Franchise savedFranchise = franchiseRepository.save(franchise);
@@ -274,6 +279,55 @@ public class FranchiseService {
     public List<Franchise> getRecentFranchises() {
         log.debug("Getting recent franchises");
         return franchiseRepository.findFranchisesCreatedSince(LocalDateTime.now().minusDays(7));
+    }
+
+    /**
+     * Calculate performance metrics for a franchise
+     */
+    @Transactional(readOnly = true)
+    public FranchiseDto.PerformanceMetrics calculatePerformanceMetrics(String franchiseId) {
+        log.debug("Calculating performance metrics for franchise: {}", franchiseId);
+
+        // Verify franchise exists
+        Franchise franchise = getFranchiseById(franchiseId);
+
+        // For now, generate mock performance metrics based on franchise data
+        // In a real implementation, this would query applications, payments, and other data
+
+        // Mock calculations based on franchise units and age
+        int totalUnits = franchise.getTotalUnits();
+        int franchisedUnits = franchise.getFranchisedUnits();
+        int yearEstablished = franchise.getYearEstablished();
+        int franchiseAge = LocalDateTime.now().getYear() - yearEstablished;
+
+        // Generate realistic mock metrics
+        int totalApplications = Math.max(1, totalUnits * 2 + (int)(Math.random() * 10));
+        int approvedApplications = Math.max(1, franchisedUnits + (int)(Math.random() * 3));
+        double conversionRate = totalApplications > 0 ? (double) approvedApplications / totalApplications * 100 : 0;
+
+        // Calculate revenue based on franchise fee and units
+        BigDecimal totalRevenue = franchise.getFranchiseFee()
+            .multiply(BigDecimal.valueOf(approvedApplications))
+            .add(BigDecimal.valueOf(franchisedUnits * 50000)); // Mock ongoing revenue
+
+        // Average time to partnership (mock: 30-90 days)
+        int averageTimeToPartnership = 30 + (int)(Math.random() * 60);
+
+        // Monthly growth rate (mock: 2-15%)
+        double monthlyGrowth = 2.0 + (Math.random() * 13.0);
+
+        // Active partnerships (same as franchised units for simplicity)
+        int activePartnerships = franchisedUnits;
+
+        return new FranchiseDto.PerformanceMetrics(
+            totalApplications,
+            approvedApplications,
+            Math.round(conversionRate * 100.0) / 100.0, // Round to 2 decimal places
+            totalRevenue,
+            averageTimeToPartnership,
+            Math.round(monthlyGrowth * 100.0) / 100.0, // Round to 2 decimal places
+            activePartnerships
+        );
     }
 
     /**

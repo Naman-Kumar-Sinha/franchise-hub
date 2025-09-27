@@ -363,15 +363,43 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public PaymentStats getPaymentStats() {
         log.debug("Getting payment statistics");
-        
+
         long totalTransactions = paymentTransactionRepository.count();
         long successfulTransactions = paymentTransactionRepository.countByStatus(PaymentTransaction.TransactionStatus.SUCCESS);
         long pendingTransactions = paymentTransactionRepository.countByStatus(PaymentTransaction.TransactionStatus.PENDING);
         long failedTransactions = paymentTransactionRepository.countByStatus(PaymentTransaction.TransactionStatus.FAILED);
-        
+
         BigDecimal totalAmount = paymentTransactionRepository.sumAmountByStatus(PaymentTransaction.TransactionStatus.SUCCESS);
         if (totalAmount == null) totalAmount = BigDecimal.ZERO;
-        
+
+        return new PaymentStats(totalTransactions, successfulTransactions, pendingTransactions, failedTransactions, totalAmount);
+    }
+
+    /**
+     * Get payment statistics by business owner
+     */
+    @Transactional(readOnly = true)
+    public PaymentStats getPaymentStatsByBusinessOwner(String businessOwnerId) {
+        log.debug("Getting payment statistics for business owner: {}", businessOwnerId);
+
+        // Get real payment statistics for this business owner's franchises
+        long totalTransactions = paymentTransactionRepository.countTransactionsForBusinessOwner(businessOwnerId);
+        long successfulTransactions = paymentTransactionRepository.countTransactionsForBusinessOwnerByStatus(
+            businessOwnerId, PaymentTransaction.TransactionStatus.SUCCESS);
+        long pendingTransactions = paymentTransactionRepository.countTransactionsForBusinessOwnerByStatus(
+            businessOwnerId, PaymentTransaction.TransactionStatus.PENDING);
+        long failedTransactions = paymentTransactionRepository.countTransactionsForBusinessOwnerByStatus(
+            businessOwnerId, PaymentTransaction.TransactionStatus.FAILED);
+
+        // Get total revenue from successful transactions
+        BigDecimal totalAmount = paymentTransactionRepository.getTotalRevenueForBusinessOwner(businessOwnerId);
+        if (totalAmount == null) {
+            totalAmount = BigDecimal.ZERO;
+        }
+
+        log.debug("Payment stats for business owner {}: total={}, successful={}, pending={}, failed={}, revenue={}",
+                 businessOwnerId, totalTransactions, successfulTransactions, pendingTransactions, failedTransactions, totalAmount);
+
         return new PaymentStats(totalTransactions, successfulTransactions, pendingTransactions, failedTransactions, totalAmount);
     }
 
@@ -399,6 +427,17 @@ public class PaymentService {
         public long getPendingTransactions() { return pendingTransactions; }
         public long getFailedTransactions() { return failedTransactions; }
         public BigDecimal getTotalAmount() { return totalAmount; }
+
+        // Additional methods for business dashboard
+        public BigDecimal getTotalRevenue() { return totalAmount; }
+        public BigDecimal getMonthlyRevenue() {
+            // For now, return monthly revenue as total revenue divided by 12
+            // In a real implementation, this would query transactions from the last month
+            if (totalAmount.compareTo(BigDecimal.ZERO) == 0) {
+                return BigDecimal.ZERO;
+            }
+            return totalAmount.divide(BigDecimal.valueOf(12), 2, java.math.RoundingMode.HALF_UP);
+        }
     }
 
     /**

@@ -7,7 +7,7 @@ import { User, UserRole, LoginCredentials, RegisterData } from '../models/user.m
 
 export interface AuthResponse {
   user: ApiUser;
-  token: string;
+  accessToken: string;
   refreshToken?: string;
   expiresIn: number;
 }
@@ -60,9 +60,9 @@ export class ApiAuthService {
 
     return this.http.post<AuthResponse>(url, credentials).pipe(
       tap(response => {
-        this.saveTokenToStorage(response.token, response.refreshToken);
+        this.saveTokenToStorage(response.accessToken, response.refreshToken);
       }),
-      map(response => this.mapApiUserToUser(response.user, response.token)),
+      map(response => this.mapApiUserToUser(response.user, response.accessToken)),
       tap(user => {
         this.setCurrentUser(user);
         this.saveUserToStorage(user);
@@ -86,9 +86,9 @@ export class ApiAuthService {
 
     return this.http.post<AuthResponse>(url, apiRegisterData).pipe(
       tap(response => {
-        this.saveTokenToStorage(response.token, response.refreshToken);
+        this.saveTokenToStorage(response.accessToken, response.refreshToken);
       }),
-      map(response => this.mapApiUserToUser(response.user, response.token)),
+      map(response => this.mapApiUserToUser(response.user, response.accessToken)),
       tap(user => {
         this.setCurrentUser(user);
         this.saveUserToStorage(user);
@@ -122,11 +122,11 @@ export class ApiAuthService {
 
     const url = `${environment.apiUrl}${environment.endpoints.auth.refresh}`;
     
-    return this.http.post<{ token: string; refreshToken?: string }>(url, { refreshToken }).pipe(
+    return this.http.post<{ accessToken: string; refreshToken?: string }>(url, { refreshToken }).pipe(
       tap(response => {
-        this.saveTokenToStorage(response.token, response.refreshToken);
+        this.saveTokenToStorage(response.accessToken, response.refreshToken);
       }),
-      map(response => response.token),
+      map(response => response.accessToken),
       catchError(this.handleError)
     );
   }

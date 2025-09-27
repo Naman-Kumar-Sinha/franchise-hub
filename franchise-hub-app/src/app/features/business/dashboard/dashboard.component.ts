@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,11 +11,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { MockDataService } from '../../../core/services/mock-data.service';
+import { ApiBusinessService } from '../../../core/services/api-business.service';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { PaymentTransaction } from '../../../core/models/application.model';
 import { FranchiseApplication, ApplicationStatus } from '../../../core/models/application.model';
 import { Franchise } from '../../../core/models/franchise.model';
 import { Transaction } from '../../../core/models/transaction.model';
+import { catchError, of, takeUntil, distinctUntilChanged, shareReplay } from 'rxjs';
+import { Subject, BehaviorSubject } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
@@ -592,7 +595,7 @@ import { Transaction } from '../../../core/models/transaction.model';
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   currentUser: any;
   dashboardStats: any;
   myFranchises: Franchise[] = [];
@@ -601,9 +604,16 @@ export class DashboardComponent implements OnInit {
   revenueChartData: any[] = [];
   applicationsChartData: any[] = [];
 
+  // Add caching and lifecycle management
+  private destroy$ = new Subject<void>();
+  private dashboardStatsCache$ = new BehaviorSubject<any>(null);
+  private lastStatsLoadTime = 0;
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
   constructor(
     private authService: AuthService,
     private mockDataService: MockDataService,
+    private apiBusinessService: ApiBusinessService,
     private currencyService: CurrencyService
   ) {}
 
@@ -611,8 +621,16 @@ export class DashboardComponent implements OnInit {
     this.loadDashboardData();
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   private loadDashboardData() {
-    this.authService.currentUser$.subscribe(user => {
+    this.authService.currentUser$.pipe(
+      takeUntil(this.destroy$),
+      distinctUntilChanged((prev, curr) => prev?.id === curr?.id)
+    ).subscribe(user => {
       this.currentUser = user;
       if (user) {
         this.loadStats(user.id);
@@ -624,21 +642,65 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  private loadStats(userId: string) {
-    this.mockDataService.getDashboardStats(userId, this.currentUser.role).subscribe((stats: any) => {
-      this.dashboardStats = stats;
-    });
+  private loadStats(userId: string, forceRefresh: boolean = false) {
+    // Check cache first
+    const now = Date.now();
+    const isCacheValid = !forceRefresh && (now - this.lastStatsLoadTime) < this.CACHE_DURATION;
+
+    if (isCacheValid && this.dashboardStatsCache$.value) {
+      console.log('📊 Dashboard - Using cached stats');
+      this.dashboardStats = this.dashboardStatsCache$.value;
+      return;
+    }
+
+    console.log('📊 Dashboard - Loading fresh stats from API/service');
+
+    // Check if this is a demo account
+    if (this.authService.isDemoAccount(this.currentUser.email)) {
+      // Use mock data service for demo accounts
+      this.mockDataService.getDashboardStats(userId, this.currentUser.role).pipe(
+        takeUntil(this.destroy$)
+      ).subscribe((stats: any) => {
+        this.dashboardStats = stats;
+        this.dashboardStatsCache$.next(stats);
+        this.lastStatsLoadTime = now;
+      });
+    } else {
+      // Use API service for real accounts
+      this.apiBusinessService.getDashboardStats().pipe(
+        takeUntil(this.destroy$),
+        shareReplay(1), // Cache the API response
+        catchError(error => {
+          console.error('Error loading dashboard stats from API:', error);
+          // Fallback to mock data on error
+          return this.mockDataService.getDashboardStats(userId, this.currentUser.role);
+        })
+      ).subscribe((stats: any) => {
+        this.dashboardStats = stats;
+        this.dashboardStatsCache$.next(stats);
+        this.lastStatsLoadTime = now;
+      });
+    }
   }
 
   private loadMyFranchises(businessOwnerId: string) {
     // Subscribe to reactive franchise data for real-time updates
-    this.mockDataService.franchises$.subscribe((allFranchises: any[]) => {
+    this.mockDataService.franchises$.pipe(
+      takeUntil(this.destroy$),
+      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
+    ).subscribe((allFranchises: any[]) => {
       const userFranchises = allFranchises
         .filter(f => f.businessOwnerId === businessOwnerId)
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort newest first
+
+      const previousCount = this.myFranchises.length;
       this.myFranchises = userFranchises.slice(0, 3); // Show only first 3
-      // Reload stats when franchises change
-      this.loadStats(businessOwnerId);
+
+      // Only reload stats if franchise count changed (new franchise added/removed)
+      if (userFranchises.length !== previousCount) {
+        console.log('📊 Dashboard - Franchise count changed, refreshing stats');
+        this.loadStats(businessOwnerId, true); // Force refresh
+      }
     });
   }
 
@@ -713,8 +775,8 @@ export class DashboardComponent implements OnInit {
         console.log('Application approved:', updatedApplication);
         // Remove from pending list
         this.pendingApplications = this.pendingApplications.filter(app => app.id !== applicationId);
-        // Refresh stats
-        this.loadStats(this.currentUser.id);
+        // Refresh stats with force refresh
+        this.loadStats(this.currentUser.id, true);
       }
     );
   }
@@ -725,9 +787,17 @@ export class DashboardComponent implements OnInit {
         console.log('Application rejected:', updatedApplication);
         // Remove from pending list
         this.pendingApplications = this.pendingApplications.filter(app => app.id !== applicationId);
-        // Refresh stats
-        this.loadStats(this.currentUser.id);
+        // Refresh stats with force refresh
+        this.loadStats(this.currentUser.id, true);
       }
     );
+  }
+
+  // Public method to refresh dashboard data
+  refreshDashboard() {
+    if (this.currentUser) {
+      console.log('📊 Dashboard - Manual refresh triggered');
+      this.loadStats(this.currentUser.id, true);
+    }
   }
 }

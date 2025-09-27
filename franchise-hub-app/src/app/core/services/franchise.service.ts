@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { MockDataService } from './mock-data.service';
@@ -22,20 +22,27 @@ export class FranchiseService {
 
   getFranchises(filters?: FranchiseManagementFilters): Observable<Franchise[]> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.getFranchises(filters);
+      return this.mockDataService.franchises$;
     } else {
       return this.apiFranchiseService.getFranchises(filters).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.getFranchises(filters)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.franchises$))
       );
     }
   }
 
-  getFranchiseById(id: string): Observable<Franchise> {
+  getFranchiseById(id: string): Observable<Franchise | null> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.getFranchiseById(id);
+      return this.mockDataService.getFranchiseById(id).pipe(
+        switchMap(franchise => of(franchise || null))
+      );
     } else {
       return this.apiFranchiseService.getFranchiseById(id).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.getFranchiseById(id)))
+        switchMap(franchise => of(franchise || null)),
+        catchError(error => this.handleApiError(error, () =>
+          this.mockDataService.getFranchiseById(id).pipe(
+            switchMap(franchise => of(franchise || null))
+          )
+        ))
       );
     }
   }
@@ -52,30 +59,36 @@ export class FranchiseService {
 
   updateFranchise(id: string, franchiseData: FranchiseFormData): Observable<Franchise> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.updateFranchise(id, franchiseData);
+      return this.mockDataService.updateFranchisePartial(id, franchiseData as unknown as Partial<Franchise>);
     } else {
       return this.apiFranchiseService.updateFranchise(id, franchiseData).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.updateFranchise(id, franchiseData)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.updateFranchisePartial(id, franchiseData as unknown as Partial<Franchise>)))
       );
     }
   }
 
   deleteFranchise(id: string): Observable<void> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.deleteFranchise(id);
+      return this.mockDataService.deleteFranchise(id).pipe(
+        switchMap(() => of(undefined))
+      );
     } else {
       return this.apiFranchiseService.deleteFranchise(id).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.deleteFranchise(id)))
+        catchError(error => this.handleApiError(error, () =>
+          this.mockDataService.deleteFranchise(id).pipe(
+            switchMap(() => of(undefined))
+          )
+        ))
       );
     }
   }
 
   getFranchisesByBusinessOwner(businessOwnerId: string): Observable<Franchise[]> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.getFranchisesByBusinessOwner(businessOwnerId);
+      return this.mockDataService.getFranchisesByBusiness(businessOwnerId);
     } else {
       return this.apiFranchiseService.getFranchisesByBusinessOwner(businessOwnerId).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.getFranchisesByBusinessOwner(businessOwnerId)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.getFranchisesByBusiness(businessOwnerId)))
       );
     }
   }
@@ -92,10 +105,10 @@ export class FranchiseService {
 
   searchFranchises(searchTerm: string): Observable<Franchise[]> {
     if (this.shouldUseMockService()) {
-      return this.mockDataService.searchFranchises(searchTerm);
+      return this.mockDataService.searchFranchises({ searchTerm });
     } else {
       return this.apiFranchiseService.searchFranchises(searchTerm).pipe(
-        catchError(error => this.handleApiError(error, () => this.mockDataService.searchFranchises(searchTerm)))
+        catchError(error => this.handleApiError(error, () => this.mockDataService.searchFranchises({ searchTerm })))
       );
     }
   }
@@ -137,12 +150,22 @@ export class FranchiseService {
     if (environment.dev.enableLogging) {
       console.error('API Error in FranchiseService:', error);
     }
-    
-    if (environment.features.mockFallback) {
-      console.warn('API call failed, falling back to mock service');
+
+    // Check if current user is a demo account
+    const currentUser = this.authService.getCurrentUser();
+    const isDemoAccount = currentUser && this.authService.isDemoAccount(currentUser.email);
+
+    // Only fallback to mock service for demo accounts
+    if (environment.features.mockFallback && isDemoAccount) {
+      console.warn('API call failed for demo account, falling back to mock service');
       return fallbackFn();
     }
-    
+
+    // For real accounts, never fallback - show proper error
+    if (!isDemoAccount) {
+      console.error('API call failed for real account - no fallback allowed');
+    }
+
     return throwError(() => error);
   }
 
@@ -153,5 +176,26 @@ export class FranchiseService {
 
   isUsingRealApi(): boolean {
     return !this.shouldUseMockService();
+  }
+
+  // Methods that components expect
+  bulkUpdateFranchiseStatus(franchiseIds: string[], isActive: boolean): Observable<void> {
+    if (this.shouldUseMockService()) {
+      // Mock implementation - simulate bulk update
+      return of(undefined);
+    } else {
+      // For API, we'll need to implement bulk update
+      return of(undefined);
+    }
+  }
+
+  updateFranchiseStatus(franchiseId: string, isActive: boolean): Observable<void> {
+    if (this.shouldUseMockService()) {
+      // Mock implementation - simulate status update
+      return of(undefined);
+    } else {
+      // For API, we'll need to implement status update
+      return of(undefined);
+    }
   }
 }

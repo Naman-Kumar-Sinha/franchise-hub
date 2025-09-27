@@ -370,14 +370,31 @@ public class ApplicationService {
     @Transactional(readOnly = true)
     public ApplicationStats getApplicationStatsByFranchise(String franchiseId) {
         log.debug("Getting application statistics for franchise: {}", franchiseId);
-        
+
         long totalApplications = applicationRepository.countByFranchiseId(franchiseId);
         long submittedApplications = applicationRepository.countByFranchiseIdAndStatus(franchiseId, Application.ApplicationStatus.SUBMITTED);
         long underReviewApplications = applicationRepository.countByFranchiseIdAndStatus(franchiseId, Application.ApplicationStatus.UNDER_REVIEW);
         long approvedApplications = applicationRepository.countByFranchiseIdAndStatus(franchiseId, Application.ApplicationStatus.APPROVED);
         long rejectedApplications = applicationRepository.countByFranchiseIdAndStatus(franchiseId, Application.ApplicationStatus.REJECTED);
-        
-        return new ApplicationStats(totalApplications, submittedApplications, underReviewApplications, 
+
+        return new ApplicationStats(totalApplications, submittedApplications, underReviewApplications,
+                                  approvedApplications, rejectedApplications);
+    }
+
+    /**
+     * Get application statistics by business owner
+     */
+    @Transactional(readOnly = true)
+    public ApplicationStats getApplicationStatsByBusinessOwner(String businessOwnerId) {
+        log.debug("Getting application statistics for business owner: {}", businessOwnerId);
+
+        long totalApplications = applicationRepository.countApplicationsForBusinessOwner(businessOwnerId);
+        long submittedApplications = applicationRepository.countApplicationsForBusinessOwnerByStatus(businessOwnerId, Application.ApplicationStatus.SUBMITTED);
+        long underReviewApplications = applicationRepository.countApplicationsForBusinessOwnerByStatus(businessOwnerId, Application.ApplicationStatus.UNDER_REVIEW);
+        long approvedApplications = applicationRepository.countApplicationsForBusinessOwnerByStatus(businessOwnerId, Application.ApplicationStatus.APPROVED);
+        long rejectedApplications = applicationRepository.countApplicationsForBusinessOwnerByStatus(businessOwnerId, Application.ApplicationStatus.REJECTED);
+
+        return new ApplicationStats(totalApplications, submittedApplications, underReviewApplications,
                                   approvedApplications, rejectedApplications);
     }
 
@@ -587,5 +604,10 @@ public class ApplicationService {
         public long getApproved() { return approved; }
         public long getRejected() { return rejected; }
         public long getDraft() { return total - submitted - underReview - approved - rejected; }
+
+        // Additional methods for business dashboard
+        public long getTotalApplications() { return total; }
+        public long getApprovedApplications() { return approved; }
+        public long getPendingApplications() { return submitted + underReview; }
     }
 }

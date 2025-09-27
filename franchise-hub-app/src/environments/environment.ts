@@ -24,10 +24,36 @@ export const environment = {
       logout: '/auth/logout',
       profile: '/auth/profile'
     },
-    franchises: '/franchises',
-    applications: '/applications',
-    payments: '/payments',
-    notifications: '/notifications',
+    franchises: {
+      list: '/franchises',
+      create: '/franchises',
+      update: '/franchises',
+      delete: '/franchises',
+      performance: '/franchises/{id}/performance'
+    },
+    applications: {
+      list: '/applications',
+      create: '/applications',
+      update: '/applications',
+      delete: '/applications',
+      review: '/applications/{id}/review',
+      documents: '/applications/{id}/documents'
+    },
+    payments: {
+      transactions: '/payments/transactions',
+      requests: '/payments/requests',
+      processApplication: '/payments/process-application',
+      settlement: '/payments/settlement'
+    },
+    notifications: {
+      list: '/notifications',
+      create: '/notifications',
+      markRead: '/notifications/mark-read',
+      markMultipleRead: '/notifications/mark-multiple-read',
+      markAllRead: '/notifications/mark-all-read',
+      deleteMultiple: '/notifications/delete-multiple',
+      unreadCount: '/notifications/unread-count'
+    },
     users: '/users',
     admin: '/admin'
   },

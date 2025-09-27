@@ -1,7 +1,9 @@
 package com.franchisehub.api.controller;
 
 import com.franchisehub.api.model.Franchise;
+import com.franchisehub.api.model.User;
 import com.franchisehub.api.service.FranchiseService;
+import com.franchisehub.api.service.UserService;
 import com.franchisehub.api.dto.FranchiseDto;
 import com.franchisehub.api.exception.BadRequestException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,7 @@ import java.util.List;
 public class FranchiseController {
 
     private final FranchiseService franchiseService;
+    private final UserService userService;
 
     @Operation(summary = "Get all franchises", description = "Retrieve all franchises with pagination and sorting")
     @ApiResponses(value = {
@@ -42,9 +45,22 @@ public class FranchiseController {
     })
     @GetMapping
     public ResponseEntity<Page<Franchise>> getAllFranchises(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        log.info("Getting all franchises with pagination: {}", pageable);
-        Page<Franchise> franchises = franchiseService.getAllFranchises(pageable);
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authentication) {
+        log.info("Getting franchises with pagination: {} for user: {}", pageable, authentication.getName());
+
+        // Get current user
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
+        Page<Franchise> franchises;
+        if (currentUser.getRole() == User.UserRole.BUSINESS) {
+            // Business users see only their own franchises
+            franchises = franchiseService.getFranchisesByBusinessOwnerId(currentUser.getId(), pageable);
+        } else {
+            // Admin and Partner users see all franchises
+            franchises = franchiseService.getAllFranchises(pageable);
+        }
+
         return ResponseEntity.ok(franchises);
     }
 
@@ -161,11 +177,14 @@ public class FranchiseController {
             @Valid @RequestBody FranchiseDto.CreateFranchiseRequest request,
             Authentication authentication) {
         log.info("Creating franchise: {} by user: {}", request.getName(), authentication.getName());
-        
+
+        // Get user ID from email
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
         // Convert DTO to entity
         Franchise franchise = mapToFranchise(request);
-        
-        Franchise createdFranchise = franchiseService.createFranchise(franchise, authentication.getName());
+
+        Franchise createdFranchise = franchiseService.createFranchise(franchise, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(createdFranchise);
     }
 
@@ -256,6 +275,36 @@ public class FranchiseController {
         log.info("Getting franchise statistics for business owner: {}", businessOwnerId);
         FranchiseService.FranchiseStats stats = franchiseService.getFranchiseStatsByBusinessOwner(businessOwnerId);
         return ResponseEntity.ok(stats);
+    }
+
+    @Operation(summary = "Get franchise performance metrics", description = "Get performance metrics for a specific franchise")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved performance metrics"),
+        @ApiResponse(responseCode = "404", description = "Franchise not found"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
+    @GetMapping("/{id}/performance")
+    @PreAuthorize("hasRole('BUSINESS') or hasRole('ADMIN')")
+    public ResponseEntity<FranchiseDto.PerformanceMetrics> getFranchisePerformanceMetrics(
+            @Parameter(description = "Franchise ID") @PathVariable String id,
+            Authentication authentication) {
+        log.info("Getting performance metrics for franchise: {} by user: {}", id, authentication.getName());
+
+        Franchise franchise = franchiseService.getFranchiseById(id);
+
+        // Verify ownership for business users (admins can access all)
+        if (!authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            // Get user ID from email for comparison
+            User currentUser = userService.getUserByEmail(authentication.getName());
+            if (!franchise.getBusinessOwnerId().equals(currentUser.getId())) {
+                throw new BadRequestException("You can only view performance metrics for your own franchises");
+            }
+        }
+
+        // Generate performance metrics based on franchise data and applications
+        FranchiseDto.PerformanceMetrics metrics = franchiseService.calculatePerformanceMetrics(id);
+        return ResponseEntity.ok(metrics);
     }
 
     // Helper methods for DTO mapping

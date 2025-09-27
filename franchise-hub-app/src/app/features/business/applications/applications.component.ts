@@ -18,7 +18,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
 
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { ApplicationService } from '../../../core/services/application.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { FranchiseApplication, ApplicationStatus, PaymentStatus } from '../../../core/models/application.model';
@@ -519,7 +519,7 @@ import { FranchiseApplication, ApplicationStatus, PaymentStatus } from '../../..
 export class ApplicationsComponent implements OnInit {
   private router = inject(Router);
   private fb = inject(FormBuilder);
-  private mockDataService = inject(MockDataService);
+  private applicationService = inject(ApplicationService);
   private authService = inject(AuthService);
   private currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
@@ -569,7 +569,7 @@ export class ApplicationsComponent implements OnInit {
       return;
     }
 
-    this.mockDataService.getApplicationsForBusiness(currentUser.id).subscribe({
+    this.applicationService.getApplicationsForBusiness(currentUser.id).subscribe({
       next: (applications) => {
         this.applications = applications;
         this.filteredApplications = applications;

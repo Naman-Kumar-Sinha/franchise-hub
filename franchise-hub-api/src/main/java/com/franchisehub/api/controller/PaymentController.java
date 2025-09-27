@@ -2,7 +2,9 @@ package com.franchisehub.api.controller;
 
 import com.franchisehub.api.model.PaymentTransaction;
 import com.franchisehub.api.model.PaymentRequest;
+import com.franchisehub.api.model.User;
 import com.franchisehub.api.service.PaymentService;
+import com.franchisehub.api.service.UserService;
 import com.franchisehub.api.dto.PaymentDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final UserService userService;
 
     // ==================== PAYMENT TRANSACTIONS ====================
 
@@ -130,11 +133,14 @@ public class PaymentController {
             @Valid @RequestBody PaymentDto.CreateTransactionRequest request,
             Authentication authentication) {
         log.info("Creating payment transaction by user: {}", authentication.getName());
-        
+
+        // Get user ID from email
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
         // Convert DTO to entity
         PaymentTransaction transaction = mapToTransaction(request);
-        
-        PaymentTransaction createdTransaction = paymentService.createTransaction(transaction, authentication.getName());
+
+        PaymentTransaction createdTransaction = paymentService.createTransaction(transaction, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(createdTransaction);
     }
 

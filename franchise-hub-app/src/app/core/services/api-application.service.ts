@@ -83,7 +83,7 @@ export interface ApiApplication {
 })
 export class ApiApplicationService {
   private http = inject(HttpClient);
-  private baseUrl = `${environment.apiUrl}${environment.endpoints.applications}`;
+  private baseUrl = `${environment.apiUrl}${environment.endpoints.applications.list}`;
 
   getApplications(filters?: any): Observable<Application[]> {
     let params = new HttpParams();
@@ -174,26 +174,65 @@ export class ApiApplicationService {
   private mapApiApplicationToApplication(apiApplication: ApiApplication): Application {
     return {
       id: apiApplication.id,
-      applicantId: apiApplication.applicantId,
-      applicantName: apiApplication.applicantName,
-      applicantEmail: apiApplication.applicantEmail,
+      partnerId: apiApplication.applicantId,
+      partnerName: apiApplication.applicantName,
+      partnerEmail: apiApplication.applicantEmail,
+      businessOwnerId: '',
+      businessOwnerName: '',
+      franchiseCategory: '',
       franchiseId: apiApplication.franchiseId,
       franchiseName: apiApplication.franchiseName,
       status: apiApplication.status as ApplicationStatus,
+      applicationFee: apiApplication.applicationFee || 0,
       paymentStatus: apiApplication.paymentStatus as PaymentStatus,
-      applicationFee: apiApplication.applicationFee,
-      personalInfo: apiApplication.personalInfo,
-      financialInfo: apiApplication.financialInfo,
-      businessInfo: apiApplication.businessInfo,
+      personalInfo: {
+        firstName: apiApplication.personalInfo.firstName,
+        lastName: apiApplication.personalInfo.lastName,
+        email: apiApplication.personalInfo.email,
+        phone: apiApplication.personalInfo.phone,
+        address: apiApplication.personalInfo.personalAddress?.street || '',
+        city: apiApplication.personalInfo.personalAddress?.city || '',
+        state: apiApplication.personalInfo.personalAddress?.state || '',
+        zipCode: apiApplication.personalInfo.personalAddress?.zipCode || '',
+        dateOfBirth: apiApplication.personalInfo.dateOfBirth ? new Date(apiApplication.personalInfo.dateOfBirth) : new Date()
+      },
+      financialInfo: {
+        netWorth: apiApplication.financialInfo.netWorth,
+        liquidCapital: apiApplication.financialInfo.liquidAssets,
+        creditScore: apiApplication.financialInfo.creditScore || 0,
+        annualIncome: apiApplication.financialInfo.annualIncome,
+        investmentCapacity: apiApplication.financialInfo.netWorth, // Use netWorth as investment capacity
+        hasBusinessExperience: false, // Default value
+        businessExperienceDetails: undefined,
+        yearsOfExperience: undefined
+      },
+      businessInfo: {
+        preferredLocation: {
+          address: apiApplication.businessInfo.preferredLocation.street || '',
+          city: apiApplication.businessInfo.preferredLocation.city || '',
+          state: apiApplication.businessInfo.preferredLocation.state || '',
+          zipCode: apiApplication.businessInfo.preferredLocation.zipCode || '',
+          country: apiApplication.businessInfo.preferredLocation.country || 'US'
+        },
+        preferredStates: apiApplication.businessInfo.preferredStates,
+        timelineToOpen: apiApplication.businessInfo.timelineToOpen,
+        fullTimeCommitment: apiApplication.businessInfo.fullTimeCommitment,
+        hasPartners: apiApplication.businessInfo.hasPartners,
+        partnerDetails: apiApplication.businessInfo.partnerDetails
+      },
       submittedAt: new Date(apiApplication.submittedAt),
-      updatedAt: apiApplication.updatedAt ? new Date(apiApplication.updatedAt) : undefined,
+      updatedAt: apiApplication.updatedAt ? new Date(apiApplication.updatedAt) : new Date(),
       reviewedAt: apiApplication.reviewedAt ? new Date(apiApplication.reviewedAt) : undefined,
       reviewedBy: apiApplication.reviewedBy,
       reviewNotes: apiApplication.reviewNotes,
       rejectionReason: apiApplication.rejectionReason,
       paidAt: apiApplication.paidAt ? new Date(apiApplication.paidAt) : undefined,
       paymentTransactionId: apiApplication.paymentTransactionId,
-      isActive: apiApplication.isActive
+      isActive: apiApplication.isActive,
+      motivation: '',
+      questions: '',
+      references: [],
+      documents: []
     };
   }
 

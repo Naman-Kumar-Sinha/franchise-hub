@@ -13,7 +13,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { ApplicationService } from '../../../core/services/application.service';
+import { PaymentService } from '../../../core/services/payment.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { FranchiseApplication, ApplicationStatus, PaymentStatus, PaymentRequest, PaymentRequestStatus } from '../../../core/models/application.model';
@@ -439,7 +440,8 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
 export class ApplicationsComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
-  private mockDataService = inject(MockDataService);
+  private applicationService = inject(ApplicationService);
+  private paymentService = inject(PaymentService);
   private authService = inject(AuthService);
   private currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
@@ -477,10 +479,7 @@ export class ApplicationsComponent implements OnInit {
 
     console.log('🔍 Partner Applications - Loading applications for user:', currentUser.id, currentUser.email);
 
-    // Debug localStorage before loading
-    this.mockDataService.debugLocalStorage();
-
-    this.mockDataService.getApplicationsForPartner(currentUser.id).subscribe({
+    this.applicationService.getApplicationsForPartner(currentUser.id).subscribe({
       next: (applications) => {
         console.log('🔍 Partner Applications - Received applications:', applications.length, applications);
         console.log('🔍 Application details:', applications.map(a => ({
@@ -682,7 +681,7 @@ export class ApplicationsComponent implements OnInit {
   // Payment Request Methods
   private loadPaymentRequestsForApplications() {
     this.applications.forEach(application => {
-      this.mockDataService.getPaymentRequestsForApplication(application.id).subscribe({
+      this.paymentService.getPaymentRequestsForApplication(application.id).subscribe({
         next: (requests) => {
           this.paymentRequestsMap.set(application.id, requests);
           console.log(`💰 Payment requests loaded for application ${application.id}:`, requests.length);

@@ -32,19 +32,58 @@ import { AuthService } from './auth.service';
 })
 export class MockDataService {
 
-  // Storage keys for persistence
-  private readonly STORAGE_KEYS = {
-    FRANCHISES: 'franchise_hub_franchises',
-    APPLICATIONS: 'franchise_hub_applications',
-    TRANSACTIONS: 'franchise_hub_transactions',
-    PAYMENT_TRANSACTIONS: 'franchise_hub_payment_transactions',
-    REFUND_REQUESTS: 'franchise_hub_refund_requests',
-    APPLICATION_TIMELINES: 'franchise_hub_application_timelines',
-    PAYMENT_REQUESTS: 'franchise_hub_payment_requests',
-    NOTIFICATIONS: 'franchise_hub_notifications',
-    PARTNERSHIP_DEACTIVATIONS: 'franchise_hub_partnership_deactivations',
-    USERS: 'franchise_hub_users'
-  };
+  // Storage keys for persistence - user-specific to prevent data bleeding
+  private getStorageKeys() {
+    const currentUser = this.authService.getCurrentUser();
+    let userPrefix: string;
+
+    if (currentUser && this.authService.isDemoAccount(currentUser.email)) {
+      // Demo accounts use demo_ prefix
+      userPrefix = `demo_${currentUser.email.replace('@', '_').replace('.', '_')}_`;
+    } else if (currentUser) {
+      // Real users use their user ID as prefix
+      userPrefix = `user_${currentUser.id}_`;
+    } else {
+      // Fallback for no user
+      userPrefix = 'demo_default_';
+    }
+
+    return {
+      FRANCHISES: `${userPrefix}franchise_hub_franchises`,
+      APPLICATIONS: `${userPrefix}franchise_hub_applications`,
+      TRANSACTIONS: `${userPrefix}franchise_hub_transactions`,
+      PAYMENT_TRANSACTIONS: `${userPrefix}franchise_hub_payment_transactions`,
+      REFUND_REQUESTS: `${userPrefix}franchise_hub_refund_requests`,
+      APPLICATION_TIMELINES: `${userPrefix}franchise_hub_application_timelines`,
+      PAYMENT_REQUESTS: `${userPrefix}franchise_hub_payment_requests`,
+      NOTIFICATIONS: `${userPrefix}franchise_hub_notifications`,
+      PARTNERSHIP_DEACTIVATIONS: `${userPrefix}franchise_hub_partnership_deactivations`,
+      USERS: `${userPrefix}franchise_hub_users`
+    };
+  }
+
+  // Guard method to ensure MockDataService is only used for demo accounts
+  private ensureDemoAccountOnly(): void {
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser && !this.authService.isDemoAccount(currentUser.email)) {
+      console.warn('⚠️ MockDataService should not be used for real accounts:', currentUser.email);
+      // Clear any existing mock data for real accounts
+      this.clearInMemoryData();
+    }
+  }
+
+  private clearInMemoryData(): void {
+    this.mockFranchises = [];
+    this.mockApplications = [];
+    this.mockTransactions = [];
+    this.mockPaymentTransactions = [];
+    this.mockRefundRequests = [];
+    this.mockApplicationTimelines = [];
+    this.mockPaymentRequests = [];
+    this.mockNotifications = [];
+    this.mockPartnershipDeactivations = [];
+    this.mockUsers = [];
+  }
 
   // Reactive data subjects for real-time synchronization
   private franchisesSubject!: BehaviorSubject<Franchise[]>;
@@ -95,6 +134,8 @@ export class MockDataService {
   private mockNotifications: Notification[] = [];
 
   private mockPartnershipDeactivations: PartnershipDeactivation[] = [];
+
+  private mockUsers: User[] = [];
 
   private mockApplicationTimelines: ApplicationTimeline[] = [
     {
@@ -177,6 +218,10 @@ export class MockDataService {
   // Persistence and initialization methods
   private initializeData(): void {
     console.log('🏗️ === INITIALIZING DATA ===');
+
+    // Ensure MockDataService is only used for demo accounts
+    this.ensureDemoAccountOnly();
+
     console.log('🏗️ Current applications before loadFromStorage:', this.mockApplications.length);
     this.loadFromStorage();
     console.log('🏗️ Current applications after loadFromStorage:', this.mockApplications.length);
@@ -210,8 +255,10 @@ export class MockDataService {
 
   public loadFromStorage(): void {
     try {
+      const STORAGE_KEYS = this.getStorageKeys();
+
       // Load franchises from localStorage
-      const storedFranchises = localStorage.getItem(this.STORAGE_KEYS.FRANCHISES);
+      const storedFranchises = localStorage.getItem(STORAGE_KEYS.FRANCHISES);
       console.log('💾 Loading from localStorage - stored franchises:', storedFranchises ? 'found' : 'not found');
       if (storedFranchises) {
         const parsedFranchises = JSON.parse(storedFranchises);
@@ -246,16 +293,16 @@ export class MockDataService {
         // Only save franchises if data was actually fixed, and save only franchises to avoid overwriting other data
         if (franchiseDataFixed) {
           console.log('💾 Franchise data was fixed, saving only franchises to localStorage...');
-          localStorage.setItem(this.STORAGE_KEYS.FRANCHISES, JSON.stringify(this.mockFranchises));
+          localStorage.setItem(STORAGE_KEYS.FRANCHISES, JSON.stringify(this.mockFranchises));
         } else {
           console.log('💾 Franchise loading completed - no fixes needed, not saving');
         }
       }
 
       // Load applications from localStorage
-      const storedApplications = localStorage.getItem(this.STORAGE_KEYS.APPLICATIONS);
+      const storedApplications = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
       console.log('💾 === LOADING APPLICATIONS FROM LOCALSTORAGE ===');
-      console.log('💾 Storage key:', this.STORAGE_KEYS.APPLICATIONS);
+      console.log('💾 Storage key:', STORAGE_KEYS.APPLICATIONS);
       console.log('💾 Raw stored data:', storedApplications);
       console.log('💾 Stored data length:', storedApplications ? storedApplications.length : 0);
       console.log('💾 Loading from localStorage - stored applications:', storedApplications ? 'found' : 'not found');
@@ -323,7 +370,7 @@ export class MockDataService {
       }
 
       // Load transactions from localStorage
-      const storedTransactions = localStorage.getItem(this.STORAGE_KEYS.TRANSACTIONS);
+      const storedTransactions = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
       if (storedTransactions) {
         const parsedTransactions = JSON.parse(storedTransactions);
         const existingIds = this.mockTransactions.map(t => t.id);
@@ -332,7 +379,7 @@ export class MockDataService {
       }
 
       // Load payment transactions from localStorage
-      const storedPaymentTransactions = localStorage.getItem(this.STORAGE_KEYS.PAYMENT_TRANSACTIONS);
+      const storedPaymentTransactions = localStorage.getItem(STORAGE_KEYS.PAYMENT_TRANSACTIONS);
       if (storedPaymentTransactions) {
         const parsedPaymentTransactions = JSON.parse(storedPaymentTransactions);
         const existingIds = this.mockPaymentTransactions.map(pt => pt.id);
@@ -341,7 +388,7 @@ export class MockDataService {
       }
 
       // Load refund requests from localStorage
-      const storedRefundRequests = localStorage.getItem(this.STORAGE_KEYS.REFUND_REQUESTS);
+      const storedRefundRequests = localStorage.getItem(STORAGE_KEYS.REFUND_REQUESTS);
       if (storedRefundRequests) {
         const parsedRefundRequests = JSON.parse(storedRefundRequests);
         const existingIds = this.mockRefundRequests.map(rr => rr.id);
@@ -350,7 +397,7 @@ export class MockDataService {
       }
 
       // Load application timelines from localStorage
-      const storedApplicationTimelines = localStorage.getItem(this.STORAGE_KEYS.APPLICATION_TIMELINES);
+      const storedApplicationTimelines = localStorage.getItem(STORAGE_KEYS.APPLICATION_TIMELINES);
       if (storedApplicationTimelines) {
         const parsedApplicationTimelines = JSON.parse(storedApplicationTimelines);
         const existingIds = this.mockApplicationTimelines.map(at => at.id);
@@ -359,7 +406,7 @@ export class MockDataService {
       }
 
       // Load payment requests from localStorage
-      const storedPaymentRequests = localStorage.getItem(this.STORAGE_KEYS.PAYMENT_REQUESTS);
+      const storedPaymentRequests = localStorage.getItem(STORAGE_KEYS.PAYMENT_REQUESTS);
       if (storedPaymentRequests) {
         const parsedPaymentRequests = JSON.parse(storedPaymentRequests);
         const existingIds = this.mockPaymentRequests.map(pr => pr.id);
@@ -369,7 +416,7 @@ export class MockDataService {
       }
 
       // Load notifications from localStorage
-      const storedNotifications = localStorage.getItem(this.STORAGE_KEYS.NOTIFICATIONS);
+      const storedNotifications = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
       if (storedNotifications) {
         const parsedNotifications = JSON.parse(storedNotifications);
         const existingIds = this.mockNotifications.map(n => n.id);
@@ -379,7 +426,7 @@ export class MockDataService {
       }
 
       // Load partnership deactivations from localStorage
-      const storedDeactivations = localStorage.getItem(this.STORAGE_KEYS.PARTNERSHIP_DEACTIVATIONS);
+      const storedDeactivations = localStorage.getItem(STORAGE_KEYS.PARTNERSHIP_DEACTIVATIONS);
       if (storedDeactivations) {
         const parsedDeactivations = JSON.parse(storedDeactivations);
         const existingIds = this.mockPartnershipDeactivations.map(pd => pd.id);
@@ -394,6 +441,8 @@ export class MockDataService {
 
   private saveToStorage(): void {
     try {
+      const STORAGE_KEYS = this.getStorageKeys();
+
       console.log('💾 Saving to localStorage - franchises count:', this.mockFranchises.length);
       console.log('💾 Franchise IDs being saved:', this.mockFranchises.map(f => f.id));
 
@@ -421,24 +470,24 @@ export class MockDataService {
       }
 
       console.log('💾 Saving franchises to localStorage...');
-      localStorage.setItem(this.STORAGE_KEYS.FRANCHISES, JSON.stringify(this.mockFranchises));
+      localStorage.setItem(STORAGE_KEYS.FRANCHISES, JSON.stringify(this.mockFranchises));
 
       console.log('💾 Saving applications to localStorage...');
-      localStorage.setItem(this.STORAGE_KEYS.APPLICATIONS, JSON.stringify(this.mockApplications));
+      localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(this.mockApplications));
 
       console.log('💾 Saving other data to localStorage...');
-      localStorage.setItem(this.STORAGE_KEYS.TRANSACTIONS, JSON.stringify(this.mockTransactions));
-      localStorage.setItem(this.STORAGE_KEYS.PAYMENT_TRANSACTIONS, JSON.stringify(this.mockPaymentTransactions));
-      localStorage.setItem(this.STORAGE_KEYS.REFUND_REQUESTS, JSON.stringify(this.mockRefundRequests));
-      localStorage.setItem(this.STORAGE_KEYS.APPLICATION_TIMELINES, JSON.stringify(this.mockApplicationTimelines));
-      localStorage.setItem(this.STORAGE_KEYS.PAYMENT_REQUESTS, JSON.stringify(this.mockPaymentRequests));
-      localStorage.setItem(this.STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(this.mockNotifications));
-      localStorage.setItem(this.STORAGE_KEYS.PARTNERSHIP_DEACTIVATIONS, JSON.stringify(this.mockPartnershipDeactivations));
+      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(this.mockTransactions));
+      localStorage.setItem(STORAGE_KEYS.PAYMENT_TRANSACTIONS, JSON.stringify(this.mockPaymentTransactions));
+      localStorage.setItem(STORAGE_KEYS.REFUND_REQUESTS, JSON.stringify(this.mockRefundRequests));
+      localStorage.setItem(STORAGE_KEYS.APPLICATION_TIMELINES, JSON.stringify(this.mockApplicationTimelines));
+      localStorage.setItem(STORAGE_KEYS.PAYMENT_REQUESTS, JSON.stringify(this.mockPaymentRequests));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(this.mockNotifications));
+      localStorage.setItem(STORAGE_KEYS.PARTNERSHIP_DEACTIVATIONS, JSON.stringify(this.mockPartnershipDeactivations));
 
       console.log('💾 Successfully saved to localStorage');
 
       // Verify applications were saved
-      const savedApplications = localStorage.getItem(this.STORAGE_KEYS.APPLICATIONS);
+      const savedApplications = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
       console.log('💾 Verifying applications saved:', savedApplications ? 'found' : 'not found');
       if (savedApplications) {
         const parsedSaved = JSON.parse(savedApplications);
@@ -515,17 +564,19 @@ export class MockDataService {
   // Public method to clear all stored data (useful for testing)
   clearStoredData(): void {
     try {
+      const STORAGE_KEYS = this.getStorageKeys();
+
       console.log('🗑️ Clearing all localStorage data...');
-      localStorage.removeItem(this.STORAGE_KEYS.FRANCHISES);
-      localStorage.removeItem(this.STORAGE_KEYS.APPLICATIONS);
-      localStorage.removeItem(this.STORAGE_KEYS.TRANSACTIONS);
-      localStorage.removeItem(this.STORAGE_KEYS.PAYMENT_TRANSACTIONS);
-      localStorage.removeItem(this.STORAGE_KEYS.REFUND_REQUESTS);
-      localStorage.removeItem(this.STORAGE_KEYS.APPLICATION_TIMELINES);
-      localStorage.removeItem(this.STORAGE_KEYS.PAYMENT_REQUESTS);
-      localStorage.removeItem(this.STORAGE_KEYS.NOTIFICATIONS);
-      localStorage.removeItem(this.STORAGE_KEYS.PARTNERSHIP_DEACTIVATIONS);
-      localStorage.removeItem(this.STORAGE_KEYS.USERS);
+      localStorage.removeItem(STORAGE_KEYS.FRANCHISES);
+      localStorage.removeItem(STORAGE_KEYS.APPLICATIONS);
+      localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
+      localStorage.removeItem(STORAGE_KEYS.PAYMENT_TRANSACTIONS);
+      localStorage.removeItem(STORAGE_KEYS.REFUND_REQUESTS);
+      localStorage.removeItem(STORAGE_KEYS.APPLICATION_TIMELINES);
+      localStorage.removeItem(STORAGE_KEYS.PAYMENT_REQUESTS);
+      localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+      localStorage.removeItem(STORAGE_KEYS.PARTNERSHIP_DEACTIVATIONS);
+      localStorage.removeItem(STORAGE_KEYS.USERS);
 
       // Clear in-memory arrays
       this.mockFranchises = [];
@@ -549,16 +600,18 @@ export class MockDataService {
   // Public method to debug localStorage contents
   debugLocalStorage(): void {
     console.log('🔍 === DEBUGGING LOCALSTORAGE ===');
-    Object.values(this.STORAGE_KEYS).forEach(key => {
+    const STORAGE_KEYS = this.getStorageKeys();
+
+    Object.values(STORAGE_KEYS).forEach(key => {
       try {
         const data = localStorage.getItem(key);
         if (data) {
           const parsed = JSON.parse(data);
           console.log(`${key}:`, Array.isArray(parsed) ? `${parsed.length} items` : 'not array');
-          if (key === this.STORAGE_KEYS.FRANCHISES && Array.isArray(parsed)) {
+          if (key === STORAGE_KEYS.FRANCHISES && Array.isArray(parsed)) {
             console.log('  Franchise names:', parsed.map((f: any) => f.name));
           }
-          if (key === this.STORAGE_KEYS.APPLICATIONS && Array.isArray(parsed)) {
+          if (key === STORAGE_KEYS.APPLICATIONS && Array.isArray(parsed)) {
             console.log('  Application details:', parsed.map((a: any) => ({
               franchiseName: a.franchiseName,
               partnerId: a.partnerId,
@@ -613,7 +666,8 @@ export class MockDataService {
     })));
 
     // Check localStorage
-    const storedApplications = localStorage.getItem(this.STORAGE_KEYS.APPLICATIONS);
+    const STORAGE_KEYS = this.getStorageKeys();
+    const storedApplications = localStorage.getItem(STORAGE_KEYS.APPLICATIONS);
     if (storedApplications) {
       const parsed = JSON.parse(storedApplications);
       console.log('🔍 Applications in localStorage:', parsed.length);

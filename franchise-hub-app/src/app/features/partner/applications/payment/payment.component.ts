@@ -14,7 +14,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatStepperModule } from '@angular/material/stepper';
 
-import { MockDataService } from '../../../../core/services/mock-data.service';
+import { ApplicationService } from '../../../../core/services/application.service';
+import { PaymentService } from '../../../../core/services/payment.service';
 import { CurrencyService } from '../../../../core/services/currency.service';
 import { FranchiseApplication, PaymentStatus, PaymentRequest } from '../../../../core/models/application.model';
 import { PaymentMethod } from '../../../../core/models/transaction.model';
@@ -465,7 +466,8 @@ export class PaymentComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private fb = inject(FormBuilder);
-  private mockDataService = inject(MockDataService);
+  private applicationService = inject(ApplicationService);
+  private paymentService = inject(PaymentService);
   private currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
 
@@ -522,7 +524,7 @@ export class PaymentComponent implements OnInit {
   private loadApplication(applicationId: string) {
     // Mock loading application details
     setTimeout(() => {
-      this.mockDataService.getApplicationsForPartner('demo-partner-user').subscribe({
+      this.applicationService.getApplicationsForPartner('demo-partner-user').subscribe({
         next: (applications) => {
           this.application = applications.find(app => app.id === applicationId) || null;
           if (!this.application) {
@@ -546,7 +548,7 @@ export class PaymentComponent implements OnInit {
   private loadPaymentRequests(paymentRequestIds: string[]) {
     // Mock loading payment request details
     setTimeout(() => {
-      this.mockDataService.getPaymentRequestsForPartner('demo-partner-user').subscribe({
+      this.paymentService.getPaymentRequestsForPartner('demo-partner-user').subscribe({
         next: (allPaymentRequests) => {
           this.paymentRequests = allPaymentRequests.filter(pr => paymentRequestIds.includes(pr.id));
           if (this.paymentRequests.length === 0) {
@@ -618,7 +620,7 @@ export class PaymentComponent implements OnInit {
 
         // Mock payment processing
         setTimeout(() => {
-          this.mockDataService.processPaymentRequestsSettlement(paymentRequestIds, paymentData).subscribe({
+          this.paymentService.processPaymentRequestsSettlement(paymentRequestIds, paymentData).subscribe({
             next: (transactions) => {
               // Generate a random transaction ID for display
               const transactionId = 'TXN' + Math.random().toString(36).substring(2, 11).toUpperCase();
@@ -648,7 +650,7 @@ export class PaymentComponent implements OnInit {
 
         // Mock payment processing
         setTimeout(() => {
-          this.mockDataService.processApplicationPayment(this.application!.id, paymentData).subscribe({
+          this.paymentService.processApplicationPayment(this.application!.id, paymentData).subscribe({
             next: (transaction) => {
               // Generate a random transaction ID for display
               const transactionId = 'TXN' + Math.random().toString(36).substring(2, 11).toUpperCase();

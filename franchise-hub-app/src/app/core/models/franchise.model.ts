@@ -185,10 +185,13 @@ export interface FranchisePerformanceMetrics {
 
 export interface FranchiseManagementFilters {
   query?: string;
+  searchTerm?: string;
   category?: FranchiseCategory;
   status?: boolean;
+  states?: string[];
   minInvestment?: number;
   maxInvestment?: number;
   sortBy?: 'name' | 'category' | 'createdAt' | 'totalApplications' | 'revenue';
   sortDirection?: 'asc' | 'desc';
+  businessOwnerId?: string;
 }
