@@ -542,14 +542,25 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   }
 
   private loadFranchises() {
-    if (this.currentUser) {
-      console.log('🏢 Business Franchises - Current user ID:', this.currentUser.id);
-      // Use hybrid franchise service for real-time updates
-      const filters: FranchiseManagementFilters = {
-        businessOwnerId: this.currentUser.id
-      };
+    // Get current user if not already available
+    if (!this.currentUser) {
+      this.authService.currentUser$.subscribe(user => {
+        if (user) {
+          this.currentUser = user;
+          this.loadFranchises(); // Recursive call once user is available
+        }
+      });
+      return;
+    }
 
-      this.franchiseService.getFranchises(filters).subscribe(franchises => {
+    console.log('🏢 Business Franchises - Current user ID:', this.currentUser.id);
+    // Use hybrid franchise service for real-time updates
+    const filters: FranchiseManagementFilters = {
+      businessOwnerId: this.currentUser.id
+    };
+
+    this.franchiseService.getFranchises(filters).subscribe({
+      next: (franchises) => {
         console.log('🏢 Business Franchises - Franchises received:', franchises.length);
         console.log('🏢 Business Franchises - Franchise names:', franchises.map(f => f.name));
 
@@ -560,8 +571,12 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
         this.dataSource.data = this.franchises;
         this.loadPerformanceMetrics();
-      });
-    }
+      },
+      error: (error) => {
+        console.error('❌ Error loading franchises:', error);
+        this.showSnackBar('Error loading franchises. Please try again.');
+      }
+    });
   }
 
   private loadPerformanceMetrics() {
@@ -670,7 +685,9 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        // Franchise is automatically added via reactive subscription, just show success message
+        console.log('✅ Franchise created, refreshing list...', result);
+        // Refresh the franchise list to show the newly created franchise
+        this.loadFranchises();
         this.showSnackBar(`${result.name} has been created successfully!`);
       }
     });
@@ -704,6 +721,9 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
       dialogRef.afterClosed().subscribe(result => {
         if (result) {
+          console.log('✅ Franchise updated, refreshing list...', result);
+          // Refresh the franchise list to show the updated franchise
+          this.loadFranchises();
           this.showSnackBar(`${result.name} has been updated successfully!`);
         }
       });
@@ -724,6 +744,9 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
 
       dialogRef.afterClosed().subscribe(result => {
         if (result) {
+          console.log('✅ Franchise duplicated, refreshing list...', result);
+          // Refresh the franchise list to show the duplicated franchise
+          this.loadFranchises();
           this.showSnackBar(`New franchise "${result.name}" has been created! (Based on ${franchise.name})`);
         }
       });

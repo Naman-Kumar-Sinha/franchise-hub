@@ -294,21 +294,24 @@ public class FranchiseService {
         // For now, generate mock performance metrics based on franchise data
         // In a real implementation, this would query applications, payments, and other data
 
-        // Mock calculations based on franchise units and age
-        int totalUnits = franchise.getTotalUnits();
-        int franchisedUnits = franchise.getFranchisedUnits();
+        // Handle nullable fields with safe defaults
+        int totalUnits = franchise.getTotalUnits() != null ? franchise.getTotalUnits() : 0;
+        int franchisedUnits = franchise.getFranchisedUnits() != null ? franchise.getFranchisedUnits() : 0;
+        int companyOwnedUnits = franchise.getCompanyOwnedUnits() != null ? franchise.getCompanyOwnedUnits() : 0;
         int yearEstablished = franchise.getYearEstablished();
         int franchiseAge = LocalDateTime.now().getYear() - yearEstablished;
 
-        // Generate realistic mock metrics
-        int totalApplications = Math.max(1, totalUnits * 2 + (int)(Math.random() * 10));
-        int approvedApplications = Math.max(1, franchisedUnits + (int)(Math.random() * 3));
+        // Generate realistic mock metrics based on available data
+        // If no unit data is available, use franchise age and fee as basis
+        int baseMetric = Math.max(1, totalUnits > 0 ? totalUnits : franchiseAge);
+        int totalApplications = Math.max(1, baseMetric * 2 + (int)(Math.random() * 10));
+        int approvedApplications = Math.max(1, Math.max(franchisedUnits, baseMetric / 2) + (int)(Math.random() * 3));
         double conversionRate = totalApplications > 0 ? (double) approvedApplications / totalApplications * 100 : 0;
 
         // Calculate revenue based on franchise fee and units
         BigDecimal totalRevenue = franchise.getFranchiseFee()
             .multiply(BigDecimal.valueOf(approvedApplications))
-            .add(BigDecimal.valueOf(franchisedUnits * 50000)); // Mock ongoing revenue
+            .add(BigDecimal.valueOf(Math.max(franchisedUnits, 1) * 50000)); // Mock ongoing revenue
 
         // Average time to partnership (mock: 30-90 days)
         int averageTimeToPartnership = 30 + (int)(Math.random() * 60);
@@ -316,8 +319,8 @@ public class FranchiseService {
         // Monthly growth rate (mock: 2-15%)
         double monthlyGrowth = 2.0 + (Math.random() * 13.0);
 
-        // Active partnerships (same as franchised units for simplicity)
-        int activePartnerships = franchisedUnits;
+        // Active partnerships (use franchised units or a reasonable default)
+        int activePartnerships = Math.max(franchisedUnits, 1);
 
         return new FranchiseDto.PerformanceMetrics(
             totalApplications,
