@@ -34,6 +34,17 @@ import { AuthService } from './core/services/auth.service';
 
         <mat-card>
           <mat-card-header>
+            <mat-card-title>Authentication Strategy</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <p><strong>Strategy:</strong> {{ authStrategy }}</p>
+            <p><strong>Using Mock Service:</strong> {{ authService.isUsingMockService() ? 'Yes' : 'No' }}</p>
+            <p><strong>Using Real API:</strong> {{ authService.isUsingRealApi() ? 'Yes' : 'No' }}</p>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card>
+          <mat-card-header>
             <mat-card-title>Data Counts</mat-card-title>
           </mat-card-header>
           <mat-card-content>
@@ -144,6 +155,7 @@ import { AuthService } from './core/services/auth.service';
 })
 export class DebugPageComponent implements OnInit {
   currentUser: any = null;
+  authStrategy: string = '';
   dataCounts = { franchises: 0, applications: 0, transactions: 0 };
   franchises: any[] = [];
   applications: any[] = [];
@@ -151,7 +163,7 @@ export class DebugPageComponent implements OnInit {
 
   constructor(
     private mockDataService: MockDataService,
-    private authService: AuthService
+    public authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -160,12 +172,13 @@ export class DebugPageComponent implements OnInit {
 
   refreshData() {
     this.currentUser = this.authService.getCurrentUser();
+    this.authStrategy = this.authService.getAuthenticationStrategy();
     this.dataCounts = this.mockDataService.getDataCounts();
-    
+
     // Get current data from service
     this.franchises = (this.mockDataService as any).mockFranchises || [];
     this.applications = (this.mockDataService as any).mockApplications || [];
-    
+
     this.loadLocalStorageContents();
   }
 
