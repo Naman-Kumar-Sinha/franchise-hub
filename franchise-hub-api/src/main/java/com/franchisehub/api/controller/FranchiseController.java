@@ -203,11 +203,14 @@ public class FranchiseController {
             @Valid @RequestBody FranchiseDto.UpdateFranchiseRequest request,
             Authentication authentication) {
         log.info("Updating franchise: {} by user: {}", id, authentication.getName());
-        
+
+        // Get user ID from email
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
         // Convert DTO to entity
         Franchise franchise = mapToFranchise(request);
-        
-        Franchise updatedFranchise = franchiseService.updateFranchise(id, franchise, authentication.getName());
+
+        Franchise updatedFranchise = franchiseService.updateFranchise(id, franchise, currentUser.getId());
         return ResponseEntity.ok(updatedFranchise);
     }
 
@@ -225,8 +228,31 @@ public class FranchiseController {
             @Parameter(description = "Franchise ID") @PathVariable String id,
             @Parameter(description = "New status") @RequestParam Franchise.FranchiseStatus status) {
         log.info("Updating franchise status: {} to {}", id, status);
-        
+
         Franchise updatedFranchise = franchiseService.updateFranchiseStatus(id, status);
+        return ResponseEntity.ok(updatedFranchise);
+    }
+
+    @Operation(summary = "Toggle franchise active status", description = "Toggle franchise active/inactive status (Owner only)")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Franchise status toggled successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Forbidden - Owner only"),
+        @ApiResponse(responseCode = "404", description = "Franchise not found")
+    })
+    @PatchMapping("/{id}/toggle-status")
+    @PreAuthorize("hasRole('BUSINESS')")
+    public ResponseEntity<Franchise> toggleFranchiseStatus(
+            @Parameter(description = "Franchise ID") @PathVariable String id,
+            @Parameter(description = "Is Active") @RequestParam boolean isActive,
+            Authentication authentication) {
+        log.info("Toggling franchise status: {} to {} by user: {}", id, isActive, authentication.getName());
+
+        // Get user ID from email
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
+        Franchise updatedFranchise = franchiseService.toggleFranchiseStatus(id, isActive, currentUser.getId());
         return ResponseEntity.ok(updatedFranchise);
     }
 
@@ -243,8 +269,11 @@ public class FranchiseController {
             @Parameter(description = "Franchise ID") @PathVariable String id,
             Authentication authentication) {
         log.info("Deleting franchise: {} by user: {}", id, authentication.getName());
-        
-        franchiseService.deleteFranchise(id, authentication.getName());
+
+        // Get user ID from email
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
+        franchiseService.deleteFranchise(id, currentUser.getId());
         return ResponseEntity.noContent().build();
     }
 
@@ -321,6 +350,7 @@ public class FranchiseController {
         franchise.setFranchiseFee(request.getFranchiseFee());
         franchise.setRoyaltyFee(request.getRoyaltyFee());
         franchise.setMarketingFee(request.getMarketingFee());
+        franchise.setInitialInvestment(request.getInitialInvestment());
         franchise.setLiquidCapitalRequired(request.getLiquidCapitalRequired());
         franchise.setNetWorthRequired(request.getNetWorthRequired());
         // Add more mapping as needed
@@ -340,6 +370,7 @@ public class FranchiseController {
         franchise.setFranchiseFee(request.getFranchiseFee());
         franchise.setRoyaltyFee(request.getRoyaltyFee());
         franchise.setMarketingFee(request.getMarketingFee());
+        franchise.setInitialInvestment(request.getInitialInvestment());
         franchise.setLiquidCapitalRequired(request.getLiquidCapitalRequired());
         franchise.setNetWorthRequired(request.getNetWorthRequired());
         // Add more mapping as needed

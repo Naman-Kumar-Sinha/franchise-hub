@@ -1057,6 +1057,8 @@ export class MockDataService {
         ...franchiseData,
         updatedAt: new Date()
       };
+      console.log('🔄 Franchise updated in mock service:', this.mockFranchises[index].name, 'yearEstablished:', this.mockFranchises[index].yearEstablished);
+      this.notifyDataChange(); // Persist and notify - THIS WAS MISSING!
       return of(this.mockFranchises[index]);
     }
     throw new Error('Franchise not found');

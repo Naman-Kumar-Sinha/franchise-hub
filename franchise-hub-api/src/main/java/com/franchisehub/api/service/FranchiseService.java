@@ -3,8 +3,11 @@ package com.franchisehub.api.service;
 import com.franchisehub.api.dto.FranchiseDto;
 import com.franchisehub.api.model.Franchise;
 import com.franchisehub.api.model.User;
+import com.franchisehub.api.model.Application;
 import com.franchisehub.api.repository.FranchiseRepository;
 import com.franchisehub.api.repository.UserRepository;
+import com.franchisehub.api.repository.ApplicationRepository;
+import com.franchisehub.api.repository.PaymentTransactionRepository;
 import com.franchisehub.api.exception.ResourceNotFoundException;
 import com.franchisehub.api.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,8 @@ public class FranchiseService {
 
     private final FranchiseRepository franchiseRepository;
     private final UserRepository userRepository;
+    private final ApplicationRepository applicationRepository;
+    private final PaymentTransactionRepository paymentRepository;
 
     /**
      * Get all franchises with pagination
@@ -204,14 +209,39 @@ public class FranchiseService {
      */
     public Franchise updateFranchiseStatus(String id, Franchise.FranchiseStatus status) {
         log.debug("Updating franchise status: {} to {}", id, status);
-        
+
         Franchise franchise = getFranchiseById(id);
         franchise.setStatus(status);
         franchise.setUpdatedAt(LocalDateTime.now());
-        
+
         Franchise savedFranchise = franchiseRepository.save(franchise);
         log.info("Updated franchise status for ID: {} to {}", id, status);
         return savedFranchise;
+    }
+
+    /**
+     * Toggle franchise active status (Owner only)
+     */
+    public Franchise toggleFranchiseStatus(String id, boolean isActive, String businessOwnerId) {
+        log.debug("Toggling franchise status: {} to {} by business owner: {}", id, isActive, businessOwnerId);
+
+        Franchise franchise = getFranchiseById(id);
+
+        // Verify ownership
+        if (!franchise.getBusinessOwnerId().equals(businessOwnerId)) {
+            throw new BadRequestException("You can only update your own franchises");
+        }
+
+        // Toggle status based on isActive flag
+        Franchise.FranchiseStatus newStatus = isActive ?
+            Franchise.FranchiseStatus.ACTIVE : Franchise.FranchiseStatus.INACTIVE;
+
+        franchise.setStatus(newStatus);
+        franchise.setUpdatedAt(LocalDateTime.now());
+
+        Franchise updatedFranchise = franchiseRepository.save(franchise);
+        log.info("Toggled franchise status: {} to {} ({})", id, newStatus, isActive);
+        return updatedFranchise;
     }
 
     /**
@@ -282,7 +312,7 @@ public class FranchiseService {
     }
 
     /**
-     * Calculate performance metrics for a franchise
+     * Calculate performance metrics for a franchise based on real data
      */
     @Transactional(readOnly = true)
     public FranchiseDto.PerformanceMetrics calculatePerformanceMetrics(String franchiseId) {
@@ -291,45 +321,35 @@ public class FranchiseService {
         // Verify franchise exists
         Franchise franchise = getFranchiseById(franchiseId);
 
-        // For now, generate mock performance metrics based on franchise data
-        // In a real implementation, this would query applications, payments, and other data
+        // Query real data from database
+        // Get applications for this franchise (using basic count methods)
+        long totalApplications = applicationRepository.countByFranchiseId(franchiseId);
+        long approvedApplications = applicationRepository.countByFranchiseIdAndStatus(franchiseId, Application.ApplicationStatus.APPROVED);
 
-        // Handle nullable fields with safe defaults
-        int totalUnits = franchise.getTotalUnits() != null ? franchise.getTotalUnits() : 0;
-        int franchisedUnits = franchise.getFranchisedUnits() != null ? franchise.getFranchisedUnits() : 0;
-        int companyOwnedUnits = franchise.getCompanyOwnedUnits() != null ? franchise.getCompanyOwnedUnits() : 0;
-        int yearEstablished = franchise.getYearEstablished();
-        int franchiseAge = LocalDateTime.now().getYear() - yearEstablished;
-
-        // Generate realistic mock metrics based on available data
-        // If no unit data is available, use franchise age and fee as basis
-        int baseMetric = Math.max(1, totalUnits > 0 ? totalUnits : franchiseAge);
-        int totalApplications = Math.max(1, baseMetric * 2 + (int)(Math.random() * 10));
-        int approvedApplications = Math.max(1, Math.max(franchisedUnits, baseMetric / 2) + (int)(Math.random() * 3));
+        // Calculate conversion rate
         double conversionRate = totalApplications > 0 ? (double) approvedApplications / totalApplications * 100 : 0;
 
-        // Calculate revenue based on franchise fee and units
-        BigDecimal totalRevenue = franchise.getFranchiseFee()
-            .multiply(BigDecimal.valueOf(approvedApplications))
-            .add(BigDecimal.valueOf(Math.max(franchisedUnits, 1) * 50000)); // Mock ongoing revenue
+        // Get revenue from successful payments for this franchise
+        // For now, return zero revenue since we need to implement the custom query method
+        BigDecimal totalRevenue = BigDecimal.ZERO;
 
-        // Average time to partnership (mock: 30-90 days)
-        int averageTimeToPartnership = 30 + (int)(Math.random() * 60);
+        // Average time to partnership - return zero for now since we need to implement the custom query
+        int averageTimeToPartnership = 0;
 
-        // Monthly growth rate (mock: 2-15%)
-        double monthlyGrowth = 2.0 + (Math.random() * 13.0);
+        // Monthly growth - return zero for now since we need to implement date range queries
+        double monthlyGrowth = 0.0;
 
-        // Active partnerships (use franchised units or a reasonable default)
-        int activePartnerships = Math.max(franchisedUnits, 1);
+        // Active partnerships = approved applications that are still active
+        long activePartnerships = approvedApplications;
 
         return new FranchiseDto.PerformanceMetrics(
-            totalApplications,
-            approvedApplications,
+            (int) totalApplications,
+            (int) approvedApplications,
             Math.round(conversionRate * 100.0) / 100.0, // Round to 2 decimal places
             totalRevenue,
             averageTimeToPartnership,
             Math.round(monthlyGrowth * 100.0) / 100.0, // Round to 2 decimal places
-            activePartnerships
+            (int) activePartnerships
         );
     }
 

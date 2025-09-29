@@ -194,8 +194,10 @@ export class FranchiseService {
       // Mock implementation - simulate status update
       return of(undefined);
     } else {
-      // For API, we'll need to implement status update
-      return of(undefined);
+      return this.apiFranchiseService.updateFranchiseStatus(franchiseId, isActive).pipe(
+        switchMap(() => of(undefined)), // Convert Franchise response to void
+        catchError(error => this.handleApiError(error, () => of(undefined)))
+      );
     }
   }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
@@ -27,7 +27,8 @@ import { Franchise, FranchiseCategory, FranchiseFormData, FranchisePerformanceMe
 import { FranchiseService } from '../../../core/services/franchise.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyService } from '../../../core/services/currency.service';
-import { of, Observable } from 'rxjs';
+import { of, Observable, Subject } from 'rxjs';
+import { takeUntil, map } from 'rxjs/operators';
 import { catchError } from 'rxjs/operators';
 
 interface FranchiseMetrics {
@@ -480,7 +481,7 @@ import { FranchiseDetailsDialogComponent } from './franchise-details-dialog/fran
     }
   `]
 })
-export class FranchisesComponent implements OnInit, AfterViewInit {
+export class FranchisesComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
 
@@ -501,6 +502,7 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   franchises: Franchise[] = [];
   currentUser: any;
   performanceCache = new Map<string, FranchiseMetrics>();
+  private destroy$ = new Subject<void>();
 
   // Category options
   categories = [
@@ -535,6 +537,11 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
     this.dataSource.sort = this.sort;
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   private loadCurrentUser() {
     this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
@@ -554,21 +561,23 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
     }
 
     console.log('🏢 Business Franchises - Current user ID:', this.currentUser.id);
-    // Use hybrid franchise service for real-time updates
-    const filters: FranchiseManagementFilters = {
-      businessOwnerId: this.currentUser.id
-    };
 
-    this.franchiseService.getFranchises(filters).subscribe({
-      next: (franchises) => {
+    // Use reactive stream for real-time updates (especially important for mock service)
+    this.franchiseService.getFranchises$().pipe(
+      takeUntil(this.destroy$),
+      map((allFranchises: Franchise[]) => {
+        // Filter franchises for current business owner
+        return allFranchises
+          .filter((f: Franchise) => f.businessOwnerId === this.currentUser.id)
+          .sort((a: Franchise, b: Franchise) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      })
+    ).subscribe({
+      next: (franchises: Franchise[]) => {
         console.log('🏢 Business Franchises - Franchises received:', franchises.length);
-        console.log('🏢 Business Franchises - Franchise names:', franchises.map(f => f.name));
+        console.log('🏢 Business Franchises - Franchise names:', franchises.map((f: Franchise) => f.name));
+        console.log('🏢 Business Franchises - Year established values:', franchises.map((f: Franchise) => `${f.name}: ${f.yearEstablished}`));
 
-        this.franchises = franchises
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort newest first
-
-        console.log('🏢 Business Franchises - Filtered franchises for user:', this.franchises.length);
-
+        this.franchises = franchises;
         this.dataSource.data = this.franchises;
         this.loadPerformanceMetrics();
       },
@@ -694,39 +703,95 @@ export class FranchisesComponent implements OnInit, AfterViewInit {
   }
 
   viewDetails(franchise: Franchise) {
-    const dialogRef = this.dialog.open(FranchiseDetailsDialogComponent, {
-      width: '800px',
-      maxWidth: '90vw',
-      data: { franchise }
-    });
+    // Fetch fresh data from service to ensure we have the latest values
+    this.franchiseService.getFranchiseById(franchise.id).subscribe({
+      next: (freshFranchise) => {
+        if (freshFranchise) {
+          console.log('🔍 Fresh franchise data for details dialog:', freshFranchise.name, 'yearEstablished:', freshFranchise.yearEstablished);
+          const dialogRef = this.dialog.open(FranchiseDetailsDialogComponent, {
+            width: '800px',
+            maxWidth: '90vw',
+            data: { franchise: freshFranchise }
+          });
 
-    dialogRef.afterClosed().subscribe(result => {
-      if (result && result.action === 'edit') {
-        this.editFranchise(result.franchise);
+          dialogRef.afterClosed().subscribe(result => {
+            if (result && result.action === 'edit') {
+              this.editFranchise(result.franchise);
+            }
+          });
+        } else {
+          this.showSnackBar('Franchise not found');
+        }
+      },
+      error: (error) => {
+        console.error('Error fetching fresh franchise data:', error);
+        // Fallback to stale data if API fails
+        const dialogRef = this.dialog.open(FranchiseDetailsDialogComponent, {
+          width: '800px',
+          maxWidth: '90vw',
+          data: { franchise }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+          if (result && result.action === 'edit') {
+            this.editFranchise(result.franchise);
+          }
+        });
       }
     });
   }
 
   editFranchise(franchise: Franchise) {
-    // Import the FranchiseDialogComponent dynamically to avoid circular imports
-    import('./franchise-dialog/franchise-dialog.component').then(({ FranchiseDialogComponent }) => {
-      const dialogRef = this.dialog.open(FranchiseDialogComponent, {
-        width: '800px',
-        maxWidth: '90vw',
-        data: {
-          franchise: franchise,
-          mode: 'edit'
-        } as FranchiseDialogData
-      });
+    // Fetch fresh data from service to ensure we have the latest values for editing
+    this.franchiseService.getFranchiseById(franchise.id).subscribe({
+      next: (freshFranchise) => {
+        if (freshFranchise) {
+          console.log('✏️ Fresh franchise data for edit dialog:', freshFranchise.name, 'yearEstablished:', freshFranchise.yearEstablished);
+          // Import the FranchiseDialogComponent dynamically to avoid circular imports
+          import('./franchise-dialog/franchise-dialog.component').then(({ FranchiseDialogComponent }) => {
+            const dialogRef = this.dialog.open(FranchiseDialogComponent, {
+              width: '800px',
+              maxWidth: '90vw',
+              data: {
+                franchise: freshFranchise,
+                mode: 'edit'
+              } as FranchiseDialogData
+            });
 
-      dialogRef.afterClosed().subscribe(result => {
-        if (result) {
-          console.log('✅ Franchise updated, refreshing list...', result);
-          // Refresh the franchise list to show the updated franchise
-          this.loadFranchises();
-          this.showSnackBar(`${result.name} has been updated successfully!`);
+            dialogRef.afterClosed().subscribe(result => {
+              if (result) {
+                console.log('✅ Franchise updated, refreshing list...', result);
+                // The reactive stream should automatically update, but we can also manually refresh
+                // this.loadFranchises(); // Not needed with reactive streams
+                this.showSnackBar(`${result.name} has been updated successfully!`);
+              }
+            });
+          });
+        } else {
+          this.showSnackBar('Franchise not found');
         }
-      });
+      },
+      error: (error) => {
+        console.error('Error fetching fresh franchise data for edit:', error);
+        // Fallback to stale data if API fails
+        import('./franchise-dialog/franchise-dialog.component').then(({ FranchiseDialogComponent }) => {
+          const dialogRef = this.dialog.open(FranchiseDialogComponent, {
+            width: '800px',
+            maxWidth: '90vw',
+            data: {
+              franchise: franchise,
+              mode: 'edit'
+            } as FranchiseDialogData
+          });
+
+          dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+              console.log('✅ Franchise updated, refreshing list...', result);
+              this.showSnackBar(`${result.name} has been updated successfully!`);
+            }
+          });
+        });
+      }
     });
   }
 

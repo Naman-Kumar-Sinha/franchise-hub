@@ -57,41 +57,26 @@ export interface ApiFranchise {
   marketingFee: number;
   liquidCapitalRequired: number;
   netWorthRequired: number;
-  investmentRange: {
+  // Backend returns these as top-level fields, not nested
+  yearEstablished: number;
+  totalUnits: number;
+  franchisedUnits: number;
+  companyOwnedUnits: number;
+  initialInvestment: {
     min: number;
     max: number;
   };
-  financialInfo: {
-    averageRevenue?: number;
-    profitMargin?: number;
-    growthRate?: number;
-  };
-  operationalInfo: {
-    totalUnits: number;
-    franchisedUnits: number;
-    companyOwnedUnits: number;
-    yearEstablished: number;
-  };
-  territories: string[];
-  states: string[];
-  backgroundRequirements: string[];
-  supportInfo: {
-    ongoingSupport: boolean;
-    nationalAdvertising: boolean;
-    localMarketingSupport: boolean;
-    digitalMarketing: boolean;
-    trainingLocation?: string;
-    initialTrainingDays?: number;
-    supportDescription?: string;
-    marketingDescription?: string;
-  };
-  requirements: {
-    creditScore?: number;
-    education?: string;
-    experience?: string;
-  };
+  // Timestamps
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
+  // Collections
+  availableTerritories: string[];
+  availableStates: string[];
+  // Embedded objects (may be null/undefined)
+  requirements?: any;
+  marketingSupport?: any;
+  trainingSupport?: any;
+  performanceMetrics?: any;
 }
 
 @Injectable({
@@ -154,6 +139,16 @@ export class ApiFranchiseService {
     return this.retryService.withRetry(request, ApiRetryService.createConfig('critical'));
   }
 
+  updateFranchiseStatus(id: string, isActive: boolean): Observable<Franchise> {
+    const params = new HttpParams().set('isActive', isActive.toString());
+    const request = this.http.patch<ApiFranchise>(`${this.baseUrl}/${id}/toggle-status`, null, { params }).pipe(
+      map(this.mapApiFranchiseToFranchise)
+    );
+
+    // Add retry logic for status updates
+    return this.retryService.withRetry(request, ApiRetryService.createConfig('default'));
+  }
+
   getFranchisesByBusinessOwner(businessOwnerId: string): Observable<Franchise[]> {
     const params = new HttpParams().set('businessOwnerId', businessOwnerId);
     return this.http.get<ApiPagedResponse<ApiFranchise>>(this.baseUrl, { params }).pipe(
@@ -194,13 +189,14 @@ export class ApiFranchiseService {
       liquidCapitalRequired: apiFranchise.liquidCapitalRequired || 100000,
       netWorthRequired: apiFranchise.netWorthRequired || 250000,
       initialInvestment: {
-        min: 50000,
-        max: 200000
+        min: apiFranchise.initialInvestment?.min || 50000,
+        max: apiFranchise.initialInvestment?.max || 200000
       },
-      yearEstablished: 2020,
-      totalUnits: 50,
-      franchisedUnits: 40,
-      companyOwnedUnits: 10,
+      // Use top-level fields from backend response (not nested under operationalInfo)
+      yearEstablished: apiFranchise.yearEstablished || 2020,
+      totalUnits: apiFranchise.totalUnits || 50,
+      franchisedUnits: apiFranchise.franchisedUnits || 40,
+      companyOwnedUnits: apiFranchise.companyOwnedUnits || 10,
       requirements: {
         experience: apiFranchise.requirements?.experience || '',
         education: apiFranchise.requirements?.education || '',
@@ -213,8 +209,8 @@ export class ApiFranchiseService {
         operations: '',
         technology: ''
       },
-      territories: apiFranchise.territories || [],
-      availableStates: ['CA', 'TX', 'NY', 'FL'],
+      territories: apiFranchise.availableTerritories || [],
+      availableStates: apiFranchise.availableStates || ['CA', 'TX', 'NY', 'FL'],
       internationalOpportunities: false,
       contactInfo: {
         phone: '1-800-FRANCHISE',

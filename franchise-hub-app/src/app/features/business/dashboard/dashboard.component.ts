@@ -13,6 +13,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { MockDataService } from '../../../core/services/mock-data.service';
 import { ApiBusinessService } from '../../../core/services/api-business.service';
 import { CurrencyService } from '../../../core/services/currency.service';
+import { FranchiseService } from '../../../core/services/franchise.service';
 import { PaymentTransaction } from '../../../core/models/application.model';
 import { FranchiseApplication, ApplicationStatus } from '../../../core/models/application.model';
 import { Franchise } from '../../../core/models/franchise.model';
@@ -614,7 +615,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private mockDataService: MockDataService,
     private apiBusinessService: ApiBusinessService,
-    private currencyService: CurrencyService
+    private currencyService: CurrencyService,
+    private franchiseService: FranchiseService
   ) {}
 
   ngOnInit() {
@@ -684,24 +686,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private loadMyFranchises(businessOwnerId: string) {
-    // Subscribe to reactive franchise data for real-time updates
-    this.mockDataService.franchises$.pipe(
-      takeUntil(this.destroy$),
-      distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
-    ).subscribe((allFranchises: any[]) => {
-      const userFranchises = allFranchises
-        .filter(f => f.businessOwnerId === businessOwnerId)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort newest first
+    // Check if this is a demo account
+    if (this.authService.isDemoAccount(this.currentUser.email)) {
+      // Use mock data service for demo accounts with reactive updates
+      this.mockDataService.franchises$.pipe(
+        takeUntil(this.destroy$),
+        distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr))
+      ).subscribe((allFranchises: any[]) => {
+        const userFranchises = allFranchises
+          .filter(f => f.businessOwnerId === businessOwnerId)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort newest first
 
-      const previousCount = this.myFranchises.length;
-      this.myFranchises = userFranchises.slice(0, 3); // Show only first 3
+        const previousCount = this.myFranchises.length;
+        this.myFranchises = userFranchises.slice(0, 3); // Show only first 3
 
-      // Only reload stats if franchise count changed (new franchise added/removed)
-      if (userFranchises.length !== previousCount) {
-        console.log('📊 Dashboard - Franchise count changed, refreshing stats');
-        this.loadStats(businessOwnerId, true); // Force refresh
-      }
-    });
+        // Only reload stats if franchise count changed (new franchise added/removed)
+        if (userFranchises.length !== previousCount) {
+          console.log('📊 Dashboard - Franchise count changed, refreshing stats');
+          this.loadStats(businessOwnerId, true); // Force refresh
+        }
+      });
+    } else {
+      // Use API service for real accounts
+      console.log('📊 Dashboard - Loading franchises from API for user:', businessOwnerId);
+
+      this.franchiseService.getFranchises().pipe(
+        takeUntil(this.destroy$),
+        catchError(error => {
+          console.error('Error loading franchises from API:', error);
+          return of([]); // Return empty array on error
+        })
+      ).subscribe((allFranchises: Franchise[]) => {
+        // Filter franchises for current business owner and sort by creation date
+        const userFranchises = allFranchises
+          .filter(f => f.businessOwnerId === businessOwnerId)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        const previousCount = this.myFranchises.length;
+        this.myFranchises = userFranchises.slice(0, 3); // Show only first 3
+
+        console.log('📊 Dashboard - Loaded', userFranchises.length, 'franchises for business owner');
+
+        // Only reload stats if franchise count changed (new franchise added/removed)
+        if (userFranchises.length !== previousCount) {
+          console.log('📊 Dashboard - Franchise count changed, refreshing stats');
+          this.loadStats(businessOwnerId, true); // Force refresh
+        }
+      });
+    }
   }
 
   private loadPendingApplications(businessOwnerId: string) {
@@ -798,6 +830,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.currentUser) {
       console.log('📊 Dashboard - Manual refresh triggered');
       this.loadStats(this.currentUser.id, true);
+      this.loadMyFranchises(this.currentUser.id); // Also refresh franchise list
     }
   }
 }
