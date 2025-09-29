@@ -45,7 +45,7 @@ public class AuthDto {
         @NotBlank(message = "Phone is required")
         private String phone;
 
-        @NotBlank(message = "Company is required")
+        // Company is optional for partner registration
         private String company;
 
         private User.UserRole role = User.UserRole.PARTNER;

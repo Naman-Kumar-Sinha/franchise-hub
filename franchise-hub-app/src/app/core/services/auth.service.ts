@@ -77,16 +77,9 @@ export class AuthService {
           this.saveUserToStorage(user);
         }),
         catchError(error => {
-          if (environment.features.mockFallback) {
-            console.warn('API registration failed, falling back to mock registration:', error);
-            return this.mockRegister(registerData).pipe(
-              delay(environment.dev.mockDelay),
-              tap(user => {
-                this.setCurrentUser(user);
-                this.saveUserToStorage(user);
-              })
-            );
-          }
+          // CRITICAL FIX: Never fallback to mock service for real account registrations
+          // This prevents the broken state where failed API registration appears successful
+          console.error('API registration failed for real account:', error);
           return throwError(() => error);
         })
       );

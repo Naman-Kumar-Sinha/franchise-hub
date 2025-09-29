@@ -44,7 +44,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String phone;
 
-    @Column(nullable = false)
+    // Company is optional for partner registration
     private String company;
 
     private String avatar;

@@ -11,8 +11,8 @@ export const environment = {
     demoAccounts: ['business@demo.com', 'partner@demo.com'],
     // Enable real API integration for non-demo accounts
     realApiIntegration: true,
-    // Enable mock data fallback on API errors
-    mockFallback: true
+    // Enable mock data fallback on API errors (disabled for registration to prevent broken states)
+    mockFallback: false
   },
   
   // API endpoints
