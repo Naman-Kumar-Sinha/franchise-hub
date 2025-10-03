@@ -64,15 +64,15 @@ public class FranchiseController {
         return ResponseEntity.ok(franchises);
     }
 
-    @Operation(summary = "Get active franchises", description = "Retrieve all active franchises")
+    @Operation(summary = "Get active franchises", description = "Retrieve all active franchises (excluding demo franchises for data isolation)")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved active franchises"),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     @GetMapping("/active")
     public ResponseEntity<List<Franchise>> getActiveFranchises() {
-        log.info("Getting all active franchises");
-        List<Franchise> franchises = franchiseService.getAllActiveFranchises();
+        log.info("Getting active franchises excluding demo business owner franchises");
+        List<Franchise> franchises = franchiseService.getActiveFranchisesExcludingDemo();
         return ResponseEntity.ok(franchises);
     }
 

@@ -10,10 +10,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { FranchiseService } from '../../../core/services/franchise.service';
 import { FranchiseIconService } from '../../../core/services/franchise-icon.service';
 import { CurrencyService } from '../../../core/services/currency.service';
-import { Franchise } from '../../../core/models/franchise.model';
+import { Franchise, FranchiseStatus } from '../../../core/models/franchise.model';
 
 @Component({
   selector: 'app-browse',
@@ -28,7 +29,8 @@ import { Franchise } from '../../../core/models/franchise.model';
     MatInputModule,
     MatSelectModule,
     MatChipsModule,
-    MatDialogModule
+    MatDialogModule,
+    MatProgressSpinnerModule
   ],
   template: `
     <div class="browse-container">
@@ -37,120 +39,140 @@ import { Franchise } from '../../../core/models/franchise.model';
         <p>Discover the perfect franchise opportunity for your entrepreneurial journey.</p>
       </div>
 
-      <!-- Search and Filters -->
-      <div class="search-filters">
-        <mat-card>
-          <mat-card-content>
-            <div class="filter-row">
-              <mat-form-field appearance="outline" class="search-field">
-                <mat-label>Search franchises</mat-label>
-                <input matInput [(ngModel)]="searchTerm" (input)="applyFilters()" placeholder="Search by name or category">
-                <mat-icon matSuffix>search</mat-icon>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Category</mat-label>
-                <mat-select [(ngModel)]="selectedCategory" (selectionChange)="applyFilters()">
-                  <mat-option value="">All Categories</mat-option>
-                  <mat-option *ngFor="let category of categories" [value]="category">
-                    {{category}}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-
-              <mat-form-field appearance="outline">
-                <mat-label>Investment Range</mat-label>
-                <mat-select [(ngModel)]="selectedInvestmentRange" (selectionChange)="applyFilters()">
-                  <mat-option value="">Any Amount</mat-option>
-                  <mat-option value="0-100000">Under $100K</mat-option>
-                  <mat-option value="100000-250000">$100K - $250K</mat-option>
-                  <mat-option value="250000-500000">$250K - $500K</mat-option>
-                  <mat-option value="500000-1000000">$500K+</mat-option>
-                </mat-select>
-              </mat-form-field>
-            </div>
-          </mat-card-content>
-        </mat-card>
+      <!-- Loading Spinner -->
+      <div *ngIf="loading" class="loading-container">
+        <mat-spinner></mat-spinner>
+        <p>Loading franchise opportunities...</p>
       </div>
 
-      <!-- Results Summary -->
-      <div class="results-summary">
-        <p>{{filteredFranchises.length}} franchise{{filteredFranchises.length !== 1 ? 's' : ''}} found</p>
+      <!-- Error Message -->
+      <div *ngIf="error && !loading" class="error-container">
+        <mat-icon>error_outline</mat-icon>
+        <h3>Unable to load franchises</h3>
+        <p>{{error}}</p>
+        <button mat-raised-button color="primary" (click)="loadFranchises()">
+          <mat-icon>refresh</mat-icon>
+          Try Again
+        </button>
       </div>
 
-      <!-- Franchise Cards -->
-      <div class="franchises-grid">
-        <mat-card *ngFor="let franchise of filteredFranchises" class="franchise-card">
-          <div class="franchise-image">
-            <div *ngIf="!hasValidImage(franchise)" class="franchise-icon-placeholder">
-              <mat-icon [style.color]="getFranchiseIconColor(franchise.category)"
-                        [style.font-size.px]="48"
-                        [style.width.px]="48"
-                        [style.height.px]="48">
-                {{getFranchiseIcon(franchise.category)}}
-              </mat-icon>
+      <!-- Content (only show when not loading and no error) -->
+      <div *ngIf="!loading && !error">
+        <!-- Search and Filters -->
+        <div class="search-filters">
+          <mat-card>
+            <mat-card-content>
+              <div class="filter-row">
+                <mat-form-field appearance="outline" class="search-field">
+                  <mat-label>Search franchises</mat-label>
+                  <input matInput [(ngModel)]="searchTerm" (input)="applyFilters()" placeholder="Search by name or category">
+                  <mat-icon matSuffix>search</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Category</mat-label>
+                  <mat-select [(ngModel)]="selectedCategory" (selectionChange)="applyFilters()">
+                    <mat-option value="">All Categories</mat-option>
+                    <mat-option *ngFor="let category of categories" [value]="category">
+                      {{category}}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Investment Range</mat-label>
+                  <mat-select [(ngModel)]="selectedInvestmentRange" (selectionChange)="applyFilters()">
+                    <mat-option value="">Any Amount</mat-option>
+                    <mat-option value="0-100000">Under $100K</mat-option>
+                    <mat-option value="100000-250000">$100K - $250K</mat-option>
+                    <mat-option value="250000-500000">$250K - $500K</mat-option>
+                    <mat-option value="500000-1000000">$500K+</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="results-summary">
+          <p>{{filteredFranchises.length}} franchise{{filteredFranchises.length !== 1 ? 's' : ''}} found</p>
+        </div>
+
+        <!-- Franchise Cards -->
+        <div class="franchises-grid">
+          <mat-card *ngFor="let franchise of filteredFranchises" class="franchise-card">
+            <div class="franchise-image">
+              <div *ngIf="!hasValidImage(franchise)" class="franchise-icon-placeholder">
+                <mat-icon [style.color]="getFranchiseIconColor(franchise.category)"
+                          [style.font-size.px]="48"
+                          [style.width.px]="48"
+                          [style.height.px]="48">
+                  {{getFranchiseIcon(franchise.category)}}
+                </mat-icon>
+              </div>
+              <img *ngIf="hasValidImage(franchise)"
+                   [src]="franchise.images[0]"
+                   [alt]="franchise.name">
             </div>
-            <img *ngIf="hasValidImage(franchise)"
-                 [src]="franchise.images[0]"
-                 [alt]="franchise.name">
-          </div>
 
-          <mat-card-header>
-            <mat-card-title>{{franchise.name}}</mat-card-title>
-            <mat-card-subtitle>{{franchise.category}}</mat-card-subtitle>
-          </mat-card-header>
+            <mat-card-header>
+              <mat-card-title>{{franchise.name}}</mat-card-title>
+              <mat-card-subtitle>{{franchise.category}}</mat-card-subtitle>
+            </mat-card-header>
 
-          <mat-card-content>
-            <p class="franchise-description">{{franchise.description}}</p>
+            <mat-card-content>
+              <p class="franchise-description">{{franchise.description}}</p>
 
-            <div class="franchise-details">
-              <div class="detail-item">
-                <mat-icon>attach_money</mat-icon>
-                <span>Investment: {{formatCurrency(franchise.initialInvestment.min)}} - {{formatCurrency(franchise.initialInvestment.max)}}</span>
+              <div class="franchise-details">
+                <div class="detail-item">
+                  <mat-icon>attach_money</mat-icon>
+                  <span>Investment: {{formatCurrency(franchise.initialInvestment.min)}} - {{formatCurrency(franchise.initialInvestment.max)}}</span>
+                </div>
+
+                <div class="detail-item">
+                  <mat-icon>payment</mat-icon>
+                  <span>Franchise Fee: {{formatCurrency(franchise.franchiseFee)}}</span>
+                </div>
+
+                <div class="detail-item">
+                  <mat-icon>trending_up</mat-icon>
+                  <span>Royalty: {{franchise.royaltyFee}}%</span>
+                </div>
+
+                <div class="detail-item">
+                  <mat-icon>location_on</mat-icon>
+                  <span>Territory: {{franchise.territories[0]}}</span>
+                </div>
               </div>
 
-              <div class="detail-item">
-                <mat-icon>payment</mat-icon>
-                <span>Franchise Fee: {{formatCurrency(franchise.franchiseFee)}}</span>
+              <div class="support-chips">
+                <mat-chip>{{franchise.support.training}}</mat-chip>
+                <mat-chip>{{franchise.support.marketing}}</mat-chip>
+                <mat-chip>{{franchise.support.operations}}</mat-chip>
               </div>
+            </mat-card-content>
 
-              <div class="detail-item">
-                <mat-icon>trending_up</mat-icon>
-                <span>Royalty: {{franchise.royaltyFee}}%</span>
-              </div>
+            <mat-card-actions>
+              <button mat-button (click)="viewDetails(franchise)">
+                <mat-icon>info</mat-icon>
+                View Details
+              </button>
+              <button mat-raised-button color="primary" (click)="applyToFranchise(franchise)">
+                <mat-icon>send</mat-icon>
+                Apply Now
+              </button>
+            </mat-card-actions>
+          </mat-card>
+        </div>
 
-              <div class="detail-item">
-                <mat-icon>location_on</mat-icon>
-                <span>Territory: {{franchise.territories[0]}}</span>
-              </div>
-            </div>
-
-            <div class="support-chips">
-              <mat-chip>{{franchise.support.training}}</mat-chip>
-              <mat-chip>{{franchise.support.marketing}}</mat-chip>
-              <mat-chip>{{franchise.support.operations}}</mat-chip>
-            </div>
-          </mat-card-content>
-
-          <mat-card-actions>
-            <button mat-button (click)="viewDetails(franchise)">
-              <mat-icon>info</mat-icon>
-              View Details
-            </button>
-            <button mat-raised-button color="primary" (click)="applyToFranchise(franchise)">
-              <mat-icon>send</mat-icon>
-              Apply Now
-            </button>
-          </mat-card-actions>
-        </mat-card>
-      </div>
-
-      <!-- No Results -->
-      <div *ngIf="filteredFranchises.length === 0" class="no-results">
-        <mat-icon>search_off</mat-icon>
-        <h3>No franchises found</h3>
-        <p>Try adjusting your search criteria or browse all available opportunities.</p>
-        <button mat-button (click)="clearFilters()">Clear Filters</button>
+        <!-- No Results -->
+        <div *ngIf="filteredFranchises.length === 0" class="no-results">
+          <mat-icon>search_off</mat-icon>
+          <h3>No franchises found</h3>
+          <p>Try adjusting your search criteria or browse all available opportunities.</p>
+          <button mat-button (click)="clearFilters()">Clear Filters</button>
+        </div>
       </div>
     </div>
   `,
@@ -175,6 +197,42 @@ import { Franchise } from '../../../core/models/franchise.model';
       margin: 0;
       color: #666;
       font-size: 16px;
+    }
+
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .loading-container mat-spinner {
+      margin-bottom: 24px;
+    }
+
+    .error-container {
+      text-align: center;
+      padding: 60px 20px;
+      color: #666;
+    }
+
+    .error-container mat-icon {
+      font-size: 64px;
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      color: #f44336;
+    }
+
+    .error-container h3 {
+      margin: 16px 0 8px 0;
+      color: #333;
+    }
+
+    .error-container p {
+      margin: 0 0 24px 0;
     }
 
     .search-filters {
@@ -362,10 +420,13 @@ export class BrowseComponent implements OnInit {
   selectedCategory: string = '';
   selectedInvestmentRange: string = '';
 
+  loading: boolean = false;
+  error: string | null = null;
+
   private router = inject(Router);
 
   constructor(
-    private mockDataService: MockDataService,
+    private franchiseService: FranchiseService,
     private dialog: MatDialog,
     private franchiseIconService: FranchiseIconService,
     private currencyService: CurrencyService
@@ -375,11 +436,35 @@ export class BrowseComponent implements OnInit {
     this.loadFranchises();
   }
 
-  private loadFranchises() {
-    this.mockDataService.getFranchises().subscribe(franchises => {
-      this.franchises = franchises.filter(f => f.isActive);
-      this.filteredFranchises = [...this.franchises];
-      this.extractCategories();
+  loadFranchises() {
+    this.loading = true;
+    this.error = null;
+
+    console.log('🔍 Browse Component - Loading active franchises...');
+    console.log('🔍 Browse Component - Using service:', this.franchiseService.isUsingRealApi() ? 'Real API' : 'Mock Service');
+
+    this.franchiseService.getActiveFranchises().subscribe({
+      next: (franchises) => {
+        console.log('✅ Browse Component - Active franchises loaded:', franchises.length);
+        console.log('✅ Browse Component - Franchise names:', franchises.map(f => f.name));
+        console.log('✅ Browse Component - Franchise details:', franchises.map(f => ({
+          id: f.id,
+          name: f.name,
+          category: f.category,
+          status: f.status,
+          businessOwnerId: f.businessOwnerId
+        })));
+
+        this.franchises = franchises;
+        this.filteredFranchises = [...this.franchises];
+        this.extractCategories();
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('❌ Browse Component - Error loading franchises:', err);
+        this.error = 'Failed to load franchise opportunities. Please try again later.';
+        this.loading = false;
+      }
     });
   }
 

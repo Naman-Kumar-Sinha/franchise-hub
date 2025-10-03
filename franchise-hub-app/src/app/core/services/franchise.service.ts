@@ -113,6 +113,26 @@ export class FranchiseService {
     }
   }
 
+  /**
+   * Get all active franchises (for partner browsing)
+   * This method is specifically for partners to browse available franchise opportunities
+   */
+  getActiveFranchises(): Observable<Franchise[]> {
+    if (this.shouldUseMockService()) {
+      return this.mockDataService.franchises$.pipe(
+        switchMap(franchises => of(franchises.filter(f => f.isActive)))
+      );
+    } else {
+      return this.apiFranchiseService.getActiveFranchises().pipe(
+        catchError(error => this.handleApiError(error, () =>
+          this.mockDataService.franchises$.pipe(
+            switchMap(franchises => of(franchises.filter(f => f.isActive)))
+          )
+        ))
+      );
+    }
+  }
+
   // Reactive data streams for real-time updates (primarily for mock service)
   getFranchises$(): Observable<Franchise[]> {
     if (this.shouldUseMockService()) {

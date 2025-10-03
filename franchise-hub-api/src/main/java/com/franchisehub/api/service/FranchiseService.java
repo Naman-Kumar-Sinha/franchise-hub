@@ -51,6 +51,29 @@ public class FranchiseService {
     }
 
     /**
+     * Get all active franchises excluding demo business owner franchises
+     * This ensures data isolation between demo and real user contexts
+     */
+    @Transactional(readOnly = true)
+    public List<Franchise> getActiveFranchisesExcludingDemo() {
+        log.debug("Getting active franchises excluding demo business owner franchises");
+        List<Franchise> allActiveFranchises = franchiseRepository.findByStatus(Franchise.FranchiseStatus.ACTIVE);
+
+        // Filter out franchises owned by demo business accounts
+        return allActiveFranchises.stream()
+                .filter(franchise -> !isDemoBusinessOwner(franchise.getBusinessOwnerId()))
+                .toList();
+    }
+
+    /**
+     * Check if a business owner ID belongs to a demo account
+     */
+    private boolean isDemoBusinessOwner(String businessOwnerId) {
+        // Demo business owner IDs that should be filtered out from real user contexts
+        return "demo-business-user".equals(businessOwnerId);
+    }
+
+    /**
      * Get franchise by ID
      */
     @Transactional(readOnly = true)

@@ -172,6 +172,16 @@ export class ApiFranchiseService {
     );
   }
 
+  /**
+   * Get all active franchises (for partner browsing)
+   * Uses the /franchises/active endpoint which returns a simple array
+   */
+  getActiveFranchises(): Observable<Franchise[]> {
+    return this.http.get<ApiFranchise[]>(`${this.baseUrl}/active`).pipe(
+      map(apiFranchises => apiFranchises.map(this.mapApiFranchiseToFranchise))
+    );
+  }
+
   private mapApiFranchiseToFranchise(apiFranchise: ApiFranchise): Franchise {
     return {
       id: apiFranchise.id,

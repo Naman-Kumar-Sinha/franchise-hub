@@ -67,11 +67,12 @@ public class SecurityConfig {
                 
                 // Admin endpoints
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                
+
                 // Business owner endpoints
-                .requestMatchers("/franchises/**").hasAnyRole("BUSINESS", "ADMIN")
+                .requestMatchers("/franchises/active").hasAnyRole("PARTNER", "BUSINESS", "ADMIN")  // Partners can browse active franchises
+                .requestMatchers("/franchises/**").hasAnyRole("BUSINESS", "ADMIN")  // Only business owners can manage franchises
                 .requestMatchers("/applications/review/**").hasAnyRole("BUSINESS", "ADMIN")
-                
+
                 // Partner endpoints
                 .requestMatchers("/applications/submit/**").hasAnyRole("PARTNER", "ADMIN")
                 .requestMatchers("/partnerships/**").hasAnyRole("PARTNER", "BUSINESS", "ADMIN")
