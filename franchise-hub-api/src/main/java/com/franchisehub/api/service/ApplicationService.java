@@ -154,8 +154,9 @@ public class ApplicationService {
         application.setIsActive(true);
         
         // Set default status and payment status
+        // Applications are submitted directly, so they start as UNDER_REVIEW
         if (application.getStatus() == null) {
-            application.setStatus(Application.ApplicationStatus.DRAFT);
+            application.setStatus(Application.ApplicationStatus.UNDER_REVIEW);
         }
         if (application.getPaymentStatus() == null) {
             application.setPaymentStatus(Application.PaymentStatus.PENDING);
@@ -256,16 +257,15 @@ public class ApplicationService {
             throw new BadRequestException("You can only submit your own applications");
         }
 
-        // Check current status
-        if (application.getStatus() != Application.ApplicationStatus.DRAFT) {
-            throw new BadRequestException("Only draft applications can be submitted");
+        // Check current status - applications are already UNDER_REVIEW when created
+        if (application.getStatus() != Application.ApplicationStatus.UNDER_REVIEW) {
+            throw new BadRequestException("Application is not in a submittable state");
         }
 
         // Validate required information
         validateApplicationForSubmission(application);
 
-        // Update status
-        application.setStatus(Application.ApplicationStatus.SUBMITTED);
+        // Status remains UNDER_REVIEW (no change needed as applications start in this state)
         application.setSubmittedAt(LocalDateTime.now());
         application.setUpdatedAt(LocalDateTime.now());
 

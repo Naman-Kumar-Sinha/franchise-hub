@@ -82,10 +82,7 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
                         <mat-icon>visibility</mat-icon>
                         View Details
                       </button>
-                      <button mat-menu-item (click)="viewTimeline(application.id)">
-                        <mat-icon>timeline</mat-icon>
-                        View Timeline
-                      </button>
+
                       <button mat-menu-item *ngIf="application.status === ApplicationStatus.REJECTED"
                               (click)="reapply(application)">
                         <mat-icon>refresh</mat-icon>
@@ -183,27 +180,84 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
             <span matBadge="{{ getPendingCount() }}" matBadgeOverlap="false" matBadgeSize="small"></span>
           </ng-template>
           <div class="tab-content">
-            <div class="applications-grid">
-              <mat-card *ngFor="let application of getPendingApplications()" class="application-card">
-                <!-- Same card content as above -->
+            <div *ngIf="getPendingApplications().length === 0" class="empty-state">
+              <mat-icon>hourglass_empty</mat-icon>
+              <h3>No Pending Applications</h3>
+              <p>You don't have any applications under review at the moment.</p>
+            </div>
+
+            <div *ngIf="getPendingApplications().length > 0" class="applications-grid">
+              <mat-card *ngFor="let application of getPendingApplications()" class="application-card" (click)="viewApplication(application.id)">
                 <mat-card-header>
                   <mat-card-title>{{ application.franchiseName }}</mat-card-title>
                   <mat-card-subtitle>{{ application.franchiseCategory }}</mat-card-subtitle>
+                  <div class="card-actions">
+                    <button mat-icon-button [matMenuTriggerFor]="menu" (click)="$event.stopPropagation()">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #menu="matMenu">
+                      <button mat-menu-item (click)="viewApplication(application.id)">
+                        <mat-icon>visibility</mat-icon>
+                        View Details
+                      </button>
+                      <button mat-menu-item *ngIf="application.status === ApplicationStatus.REJECTED"
+                              (click)="reapply(application)">
+                        <mat-icon>refresh</mat-icon>
+                        Reapply
+                      </button>
+                    </mat-menu>
+                  </div>
                 </mat-card-header>
+
                 <mat-card-content>
                   <div class="application-info">
+                    <div class="info-row">
+                      <span class="label">Application ID:</span>
+                      <span class="value">#{{ application.id.substring(0, 8).toUpperCase() }}</span>
+                    </div>
                     <div class="info-row">
                       <span class="label">Submitted:</span>
                       <span class="value">{{ formatDate(application.submittedAt) }}</span>
                     </div>
                     <div class="info-row">
-                      <span class="label">Status:</span>
-                      <span class="value">{{ getStatusText(application.status) }}</span>
+                      <span class="label">Application Fee:</span>
+                      <span class="value">{{ currencyService.formatCurrency(application.applicationFee) }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="label">Preferred Location:</span>
+                      <span class="value">{{ application.businessInfo.preferredLocation.city }}, {{ application.businessInfo.preferredLocation.state }}</span>
                     </div>
                   </div>
+
+                  <div class="status-pills">
+                    <mat-chip-set>
+                      <mat-chip [ngClass]="getStatusClass(application.status)">
+                        <mat-icon>{{ getStatusIcon(application.status) }}</mat-icon>
+                        {{ getStatusText(application.status) }}
+                      </mat-chip>
+                      <mat-chip [ngClass]="getPaymentStatusClass(application.paymentStatus)">
+                        <mat-icon>{{ getPaymentStatusIcon(application.paymentStatus) }}</mat-icon>
+                        {{ getPaymentStatusText(application.paymentStatus) }}
+                      </mat-chip>
+                      <mat-chip
+                        *ngIf="isPaymentCompleted(application.paymentStatus) && getCompletedPaymentTransactionsCount(application.id) > 0"
+                        class="clickable-chip payment-history-chip"
+                        matBadge="{{ getCompletedPaymentTransactionsCount(application.id) }}"
+                        matBadgeOverlap="false"
+                        matBadgeSize="small"
+                        (click)="openPaymentHistoryDialog(application.id, $event)">
+                        <mat-icon>payment</mat-icon>
+                        Payment History
+                      </mat-chip>
+                    </mat-chip-set>
+                  </div>
                 </mat-card-content>
+
                 <mat-card-actions>
-                  <button mat-button (click)="viewApplication(application.id)">View Details</button>
+                  <button mat-button (click)="viewApplication(application.id); $event.stopPropagation()">
+                    <mat-icon>visibility</mat-icon>
+                    View Details
+                  </button>
                 </mat-card-actions>
               </mat-card>
             </div>
@@ -216,26 +270,85 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
             <span matBadge="{{ getApprovedCount() }}" matBadgeOverlap="false" matBadgeSize="small"></span>
           </ng-template>
           <div class="tab-content">
-            <div class="applications-grid">
-              <mat-card *ngFor="let application of getApprovedApplications()" class="application-card approved">
+            <div *ngIf="getApprovedApplications().length === 0" class="empty-state">
+              <mat-icon>check_circle</mat-icon>
+              <h3>No Approved Applications</h3>
+              <p>You don't have any approved applications yet.</p>
+            </div>
+
+            <div *ngIf="getApprovedApplications().length > 0" class="applications-grid">
+              <mat-card *ngFor="let application of getApprovedApplications()" class="application-card approved" (click)="viewApplication(application.id)">
                 <mat-card-header>
                   <mat-card-title>{{ application.franchiseName }}</mat-card-title>
                   <mat-card-subtitle>{{ application.franchiseCategory }}</mat-card-subtitle>
+                  <div class="card-actions">
+                    <button mat-icon-button [matMenuTriggerFor]="menu" (click)="$event.stopPropagation()">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #menu="matMenu">
+                      <button mat-menu-item (click)="viewApplication(application.id)">
+                        <mat-icon>visibility</mat-icon>
+                        View Details
+                      </button>
+                      <button mat-menu-item (click)="downloadAgreement(application.id)">
+                        <mat-icon>download</mat-icon>
+                        Download Agreement
+                      </button>
+                    </mat-menu>
+                  </div>
                 </mat-card-header>
+
                 <mat-card-content>
                   <div class="application-info">
+                    <div class="info-row">
+                      <span class="label">Application ID:</span>
+                      <span class="value">#{{ application.id.substring(0, 8).toUpperCase() }}</span>
+                    </div>
                     <div class="info-row">
                       <span class="label">Approved:</span>
                       <span class="value">{{ formatDate(application.reviewedAt) }}</span>
                     </div>
                     <div class="info-row">
-                      <span class="label">Next Steps:</span>
-                      <span class="value">Download and sign agreement</span>
+                      <span class="label">Application Fee:</span>
+                      <span class="value">{{ currencyService.formatCurrency(application.applicationFee) }}</span>
+                    </div>
+                    <div class="info-row">
+                      <span class="label">Preferred Location:</span>
+                      <span class="value">{{ application.businessInfo.preferredLocation.city }}, {{ application.businessInfo.preferredLocation.state }}</span>
                     </div>
                   </div>
+
+                  <div class="status-pills">
+                    <mat-chip-set>
+                      <mat-chip [ngClass]="getStatusClass(application.status)">
+                        <mat-icon>{{ getStatusIcon(application.status) }}</mat-icon>
+                        {{ getStatusText(application.status) }}
+                      </mat-chip>
+                      <mat-chip [ngClass]="getPaymentStatusClass(application.paymentStatus)">
+                        <mat-icon>{{ getPaymentStatusIcon(application.paymentStatus) }}</mat-icon>
+                        {{ getPaymentStatusText(application.paymentStatus) }}
+                      </mat-chip>
+                      <mat-chip
+                        *ngIf="isPaymentCompleted(application.paymentStatus) && getCompletedPaymentTransactionsCount(application.id) > 0"
+                        class="clickable-chip payment-history-chip"
+                        matBadge="{{ getCompletedPaymentTransactionsCount(application.id) }}"
+                        matBadgeOverlap="false"
+                        matBadgeSize="small"
+                        (click)="openPaymentHistoryDialog(application.id, $event)">
+                        <mat-icon>payment</mat-icon>
+                        Payment History
+                      </mat-chip>
+                    </mat-chip-set>
+                  </div>
                 </mat-card-content>
+
                 <mat-card-actions>
-                  <button mat-raised-button color="accent" (click)="downloadAgreement(application.id)">
+                  <button mat-button (click)="viewApplication(application.id); $event.stopPropagation()">
+                    <mat-icon>visibility</mat-icon>
+                    View Details
+                  </button>
+                  <button mat-raised-button color="accent" (click)="downloadAgreement(application.id); $event.stopPropagation()">
+                    <mat-icon>download</mat-icon>
                     Download Agreement
                   </button>
                 </mat-card-actions>
@@ -485,7 +598,7 @@ export class ApplicationsComponent implements OnInit {
   private applicationService = inject(ApplicationService);
   private paymentService = inject(PaymentService);
   private authService = inject(AuthService);
-  private currencyService = inject(CurrencyService);
+  public currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
   private dialog = inject(MatDialog);
 
@@ -610,7 +723,6 @@ export class ApplicationsComponent implements OnInit {
 
   getPendingApplications(): FranchiseApplication[] {
     return this.applications.filter(app =>
-      app.status === ApplicationStatus.SUBMITTED ||
       app.status === ApplicationStatus.UNDER_REVIEW
     );
   }
@@ -753,6 +865,11 @@ export class ApplicationsComponent implements OnInit {
 
   formatCurrency(amount: number): string {
     return this.currencyService.formatCurrency(amount);
+  }
+
+  isPaymentCompleted(paymentStatus: PaymentStatus | string): boolean {
+    // Handle both enum values and string values from backend
+    return paymentStatus === PaymentStatus.COMPLETED || paymentStatus === 'PAID';
   }
 
   // Payment Request Methods

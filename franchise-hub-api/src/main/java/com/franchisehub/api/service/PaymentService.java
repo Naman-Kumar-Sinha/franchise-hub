@@ -195,6 +195,9 @@ public class PaymentService {
         application.setPaymentTransactionId(savedTransaction.getId());
         application.setPaymentStatus(Application.PaymentStatus.PAID);
         application.setPaidAt(LocalDateTime.now());
+
+        // Note: Application status remains UNDER_REVIEW (payment status is independent of application status)
+
         applicationRepository.save(application);
 
         return savedTransaction;
