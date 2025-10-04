@@ -19,6 +19,8 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { FormsModule } from '@angular/forms';
 
 import { MockDataService } from '../../../../core/services/mock-data.service';
+import { FranchiseService } from '../../../../core/services/franchise.service';
+import { ApplicationService } from '../../../../core/services/application.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CurrencyService } from '../../../../core/services/currency.service';
 import { Franchise } from '../../../../core/models/franchise.model';
@@ -622,6 +624,8 @@ export class ApplicationFormComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private mockDataService = inject(MockDataService);
+  private franchiseService = inject(FranchiseService);
+  private applicationService = inject(ApplicationService);
   private authService = inject(AuthService);
   private currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
@@ -675,7 +679,7 @@ export class ApplicationFormComponent implements OnInit {
 
   ngOnInit() {
     this.initializeForms();
-    this.loadFranchise();
+    this.loadFranchiseFromState();
   }
 
   private initializeForms() {
@@ -719,19 +723,31 @@ export class ApplicationFormComponent implements OnInit {
     });
   }
 
-  private loadFranchise() {
+  private loadFranchiseFromState() {
     const franchiseId = this.route.snapshot.paramMap.get('franchiseId');
+    console.log('🔍 Application Form - Loading franchise with ID:', franchiseId);
+
+    // First try to get franchise from router state (passed from browse page)
+    const navigation = this.router.getCurrentNavigation();
+    const franchiseFromState = navigation?.extras?.state?.['franchise'] ||
+                              (history.state && history.state.franchise);
+
+    if (franchiseFromState) {
+      console.log('✅ Application Form - Franchise loaded from router state:', franchiseFromState.name);
+      this.franchise = franchiseFromState;
+      return;
+    }
+
+    // Fallback: Load franchise via API (only when needed for form submission)
     if (franchiseId) {
-      this.mockDataService.getFranchiseById(franchiseId).subscribe({
-        next: (franchise) => {
-          this.franchise = franchise || null;
-        },
-        error: (error) => {
-          console.error('Error loading franchise:', error);
-          this.snackBar.open('Error loading franchise details', 'Close', { duration: 3000 });
-          this.router.navigate(['/partner/browse']);
-        }
-      });
+      console.log('⚠️ Application Form - No franchise in state, will load via API only when submitting');
+      // Don't load franchise immediately - we'll load it only when submitting the form
+      // This prevents the premature API call
+      this.franchise = { id: franchiseId } as Franchise; // Minimal franchise object with just ID
+    } else {
+      console.warn('⚠️ Application Form - No franchise ID provided in route');
+      this.snackBar.open('No franchise selected', 'Close', { duration: 3000 });
+      this.router.navigate(['/partner/browse']);
     }
   }
 
@@ -748,57 +764,14 @@ export class ApplicationFormComponent implements OnInit {
       console.log('🚀 Forms are valid, proceeding with submission...');
       console.log('🚀 Current franchise:', this.franchise);
 
-      const applicationData: ApplicationCreateData = {
-        franchiseId: this.franchise!.id,
-        personalInfo: {
-          ...this.personalInfoForm.value,
-          dateOfBirth: new Date(this.personalInfoForm.value.dateOfBirth)
-        },
-        financialInfo: {
-          ...this.financialInfoForm.value,
-          netWorth: Number(this.financialInfoForm.value.netWorth),
-          liquidCapital: Number(this.financialInfoForm.value.liquidCapital),
-          annualIncome: 0, // Not collected in form
-          investmentCapacity: Number(this.financialInfoForm.value.investmentCapacity),
-          creditScore: this.financialInfoForm.value.creditScore ? Number(this.financialInfoForm.value.creditScore) : 650
-        },
-        businessInfo: this.businessInfoForm.value,
-        motivation: '',
-        questions: '',
-        references: []
-      };
+      // If we only have franchise ID (fallback case), load full franchise details now
+      if (this.franchise && !this.franchise.name) {
+        console.log('🔍 Loading full franchise details for submission...');
+        this.loadFranchiseForSubmission();
+        return;
+      }
 
-      console.log('🚀 Application data prepared:', {
-        franchiseId: applicationData.franchiseId,
-        personalInfo: applicationData.personalInfo,
-        financialInfo: applicationData.financialInfo,
-        businessInfo: applicationData.businessInfo
-      });
-
-      console.log('🚀 Calling mockDataService.createApplication()...');
-      this.mockDataService.createApplication(applicationData).subscribe({
-        next: (application) => {
-          console.log('✅ Application created successfully:', application);
-          console.log('✅ Application ID:', application.id);
-          console.log('✅ Application status:', application.status);
-
-          this.isLoading = false;
-          this.snackBar.open('Application submitted successfully! Redirecting to My Applications...', 'Close', { duration: 3000 });
-
-          // Redirect directly to My Applications page
-          setTimeout(() => {
-            console.log('🚀 Redirecting to /partner/applications...');
-            this.router.navigate(['/partner/applications']);
-          }, 1000);
-        },
-        error: (error) => {
-          console.error('❌ Error submitting application:', error);
-          console.error('❌ Error details:', error.message, error.stack);
-
-          this.isLoading = false;
-          this.snackBar.open('Error submitting application. Please try again.', 'Close', { duration: 5000 });
-        }
-      });
+      this.submitApplication();
     } else {
       console.log('❌ Forms are invalid, cannot submit');
       console.log('❌ Form errors:', {
@@ -821,5 +794,92 @@ export class ApplicationFormComponent implements OnInit {
     const baseFee = 5000;
     const franchiseFeePercentage = this.franchise.franchiseFee * 0.001;
     return Math.round(baseFee + franchiseFeePercentage);
+  }
+
+  private loadFranchiseForSubmission() {
+    if (!this.franchise?.id) {
+      this.snackBar.open('No franchise selected', 'Close', { duration: 3000 });
+      this.router.navigate(['/partner/browse']);
+      return;
+    }
+
+    console.log('🔍 Loading franchise details for submission via API...');
+    this.franchiseService.getFranchiseById(this.franchise.id).subscribe({
+      next: (franchise) => {
+        console.log('✅ Franchise loaded for submission:', franchise?.name);
+        this.franchise = franchise || null;
+
+        if (!this.franchise) {
+          console.warn('⚠️ Franchise not found for submission');
+          this.snackBar.open('Franchise not found', 'Close', { duration: 3000 });
+          this.router.navigate(['/partner/browse']);
+          return;
+        }
+
+        // Now submit the application with full franchise details
+        this.submitApplication();
+      },
+      error: (error) => {
+        console.error('❌ Error loading franchise for submission:', error);
+        this.isLoading = false;
+        this.snackBar.open('Error loading franchise details. Please try again.', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  private submitApplication() {
+    const applicationData: ApplicationCreateData = {
+      franchiseId: this.franchise!.id,
+      franchiseName: this.franchise!.name,
+      personalInfo: {
+        ...this.personalInfoForm.value,
+        dateOfBirth: new Date(this.personalInfoForm.value.dateOfBirth)
+      },
+      financialInfo: {
+        ...this.financialInfoForm.value,
+        netWorth: Number(this.financialInfoForm.value.netWorth),
+        liquidCapital: Number(this.financialInfoForm.value.liquidCapital),
+        annualIncome: 0, // Not collected in form
+        investmentCapacity: Number(this.financialInfoForm.value.investmentCapacity),
+        creditScore: this.financialInfoForm.value.creditScore ? Number(this.financialInfoForm.value.creditScore) : 650,
+        applicationFee: this.franchise!.franchiseFee || 50000 // Use franchise fee or default
+      },
+      businessInfo: this.businessInfoForm.value,
+      motivation: '',
+      questions: '',
+      references: []
+    };
+
+    console.log('🚀 Application data prepared:', {
+      franchiseId: applicationData.franchiseId,
+      personalInfo: applicationData.personalInfo,
+      financialInfo: applicationData.financialInfo,
+      businessInfo: applicationData.businessInfo
+    });
+
+    console.log('🚀 Calling applicationService.createApplication()...');
+    this.applicationService.createApplication(applicationData).subscribe({
+      next: (application) => {
+        console.log('✅ Application created successfully:', application);
+        console.log('✅ Application ID:', application.id);
+        console.log('✅ Application status:', application.status);
+
+        this.isLoading = false;
+        this.snackBar.open('Application submitted successfully! Redirecting to My Applications...', 'Close', { duration: 3000 });
+
+        // Redirect directly to My Applications page
+        setTimeout(() => {
+          console.log('🚀 Redirecting to /partner/applications...');
+          this.router.navigate(['/partner/applications']);
+        }, 1000);
+      },
+      error: (error) => {
+        console.error('❌ Error submitting application:', error);
+        console.error('❌ Error details:', error.message, error.stack);
+
+        this.isLoading = false;
+        this.snackBar.open('Error submitting application. Please try again.', 'Close', { duration: 5000 });
+      }
+    });
   }
 }

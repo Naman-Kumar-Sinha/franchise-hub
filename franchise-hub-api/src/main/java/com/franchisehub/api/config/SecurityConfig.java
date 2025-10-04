@@ -4,6 +4,7 @@ import com.franchisehub.api.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -70,11 +71,14 @@ public class SecurityConfig {
 
                 // Business owner endpoints
                 .requestMatchers("/franchises/active").hasAnyRole("PARTNER", "BUSINESS", "ADMIN")  // Partners can browse active franchises
+                .requestMatchers(HttpMethod.GET, "/franchises/*").hasAnyRole("PARTNER", "BUSINESS", "ADMIN")  // Partners can view individual franchise details
                 .requestMatchers("/franchises/**").hasAnyRole("BUSINESS", "ADMIN")  // Only business owners can manage franchises
                 .requestMatchers("/applications/review/**").hasAnyRole("BUSINESS", "ADMIN")
 
                 // Partner endpoints
                 .requestMatchers("/applications/submit/**").hasAnyRole("PARTNER", "ADMIN")
+                .requestMatchers("/applications/applicant/**").hasAnyRole("PARTNER", "ADMIN")  // Partners can view their own applications
+                .requestMatchers("/applications").hasAnyRole("PARTNER", "BUSINESS", "ADMIN")  // General applications endpoint
                 .requestMatchers("/partnerships/**").hasAnyRole("PARTNER", "BUSINESS", "ADMIN")
                 
                 // Common authenticated endpoints

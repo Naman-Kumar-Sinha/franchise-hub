@@ -365,6 +365,11 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
     }
 
     /* Status chip colors */
+    .status-draft {
+      background-color: #f5f5f5;
+      color: #616161;
+    }
+
     .status-submitted {
       background-color: #e3f2fd;
       color: #1976d2;
@@ -383,6 +388,11 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
     .status-rejected {
       background-color: #ffebee;
       color: #d32f2f;
+    }
+
+    .status-withdrawn {
+      background-color: #fafafa;
+      color: #757575;
     }
 
     .status-deactivated {
@@ -478,6 +488,8 @@ export class ApplicationsComponent implements OnInit {
     }
 
     console.log('🔍 Partner Applications - Loading applications for user:', currentUser.id, currentUser.email);
+    console.log('🔍 Partner Applications - Is demo account?', this.authService.isDemoAccount(currentUser.email));
+    console.log('🔍 Partner Applications - Using mock service?', this.applicationService.isUsingMockService());
 
     this.applicationService.getApplicationsForPartner(currentUser.id).subscribe({
       next: (applications) => {
@@ -489,6 +501,18 @@ export class ApplicationsComponent implements OnInit {
           status: a.status,
           submittedAt: a.submittedAt
         })));
+
+        // Additional debugging for data transformation
+        if (applications.length === 0) {
+          console.warn('⚠️ No applications received - checking service routing...');
+          console.log('🔍 Service routing info:', {
+            isUsingMockService: this.applicationService.isUsingMockService(),
+            isDemoAccount: this.authService.isDemoAccount(currentUser.email),
+            userEmail: currentUser.email,
+            userId: currentUser.id
+          });
+        }
+
         this.applications = applications;
         this.isLoading = false;
 
@@ -496,7 +520,14 @@ export class ApplicationsComponent implements OnInit {
         this.loadPaymentRequestsForApplications();
       },
       error: (error) => {
-        console.error('Error loading applications:', error);
+        console.error('❌ Error loading applications:', error);
+        console.log('🔍 Error details:', {
+          message: error.message,
+          status: error.status,
+          url: error.url,
+          isUsingMockService: this.applicationService.isUsingMockService(),
+          isDemoAccount: this.authService.isDemoAccount(currentUser.email)
+        });
         this.snackBar.open('Error loading applications', 'Close', { duration: 3000 });
         this.isLoading = false;
       }
@@ -564,6 +595,8 @@ export class ApplicationsComponent implements OnInit {
 
   getStatusClass(status: ApplicationStatus): string {
     switch (status) {
+      case ApplicationStatus.DRAFT:
+        return 'status-draft';
       case ApplicationStatus.SUBMITTED:
         return 'status-submitted';
       case ApplicationStatus.UNDER_REVIEW:
@@ -572,6 +605,8 @@ export class ApplicationsComponent implements OnInit {
         return 'status-approved';
       case ApplicationStatus.REJECTED:
         return 'status-rejected';
+      case ApplicationStatus.WITHDRAWN:
+        return 'status-withdrawn';
       case ApplicationStatus.DEACTIVATED:
         return 'status-deactivated';
       default:
@@ -581,6 +616,8 @@ export class ApplicationsComponent implements OnInit {
 
   getStatusIcon(status: ApplicationStatus): string {
     switch (status) {
+      case ApplicationStatus.DRAFT:
+        return 'edit';
       case ApplicationStatus.SUBMITTED:
         return 'send';
       case ApplicationStatus.UNDER_REVIEW:
@@ -589,6 +626,8 @@ export class ApplicationsComponent implements OnInit {
         return 'check_circle';
       case ApplicationStatus.REJECTED:
         return 'cancel';
+      case ApplicationStatus.WITHDRAWN:
+        return 'undo';
       case ApplicationStatus.DEACTIVATED:
         return 'block';
       default:
@@ -598,6 +637,8 @@ export class ApplicationsComponent implements OnInit {
 
   getStatusText(status: ApplicationStatus): string {
     switch (status) {
+      case ApplicationStatus.DRAFT:
+        return 'Draft';
       case ApplicationStatus.SUBMITTED:
         return 'Submitted';
       case ApplicationStatus.UNDER_REVIEW:
@@ -606,6 +647,8 @@ export class ApplicationsComponent implements OnInit {
         return 'Approved';
       case ApplicationStatus.REJECTED:
         return 'Rejected';
+      case ApplicationStatus.WITHDRAWN:
+        return 'Withdrawn';
       case ApplicationStatus.DEACTIVATED:
         return 'Deactivated';
       default:

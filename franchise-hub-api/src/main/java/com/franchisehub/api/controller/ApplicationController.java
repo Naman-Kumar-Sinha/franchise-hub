@@ -43,7 +43,7 @@ public class ApplicationController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<Application>> getAllApplications(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         log.info("Getting all applications with pagination: {}", pageable);
         Page<Application> applications = applicationService.getAllApplications(pageable);
         return ResponseEntity.ok(applications);
@@ -72,10 +72,10 @@ public class ApplicationController {
         @ApiResponse(responseCode = "403", description = "Forbidden")
     })
     @GetMapping("/applicant/{applicantId}")
-    @PreAuthorize("hasRole('ADMIN') or #applicantId == authentication.name")
+    @PreAuthorize("hasRole('ADMIN') or @userService.isCurrentUser(#applicantId)")
     public ResponseEntity<Page<Application>> getApplicationsByApplicant(
             @Parameter(description = "Applicant ID") @PathVariable String applicantId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         log.info("Getting applications by applicant: {} with pagination: {}", applicantId, pageable);
         Page<Application> applications = applicationService.getApplicationsByApplicantId(applicantId, pageable);
         return ResponseEntity.ok(applications);
@@ -91,7 +91,7 @@ public class ApplicationController {
     @PreAuthorize("hasRole('ADMIN') or @franchiseService.isFranchiseOwner(#franchiseId, authentication.name)")
     public ResponseEntity<Page<Application>> getApplicationsByFranchise(
             @Parameter(description = "Franchise ID") @PathVariable String franchiseId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         log.info("Getting applications by franchise: {} with pagination: {}", franchiseId, pageable);
         Page<Application> applications = applicationService.getApplicationsByFranchiseId(franchiseId, pageable);
         return ResponseEntity.ok(applications);
@@ -105,7 +105,7 @@ public class ApplicationController {
     @GetMapping("/status/{status}")
     public ResponseEntity<Page<Application>> getApplicationsByStatus(
             @Parameter(description = "Application Status") @PathVariable Application.ApplicationStatus status,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable,
             Authentication authentication) {
         log.info("Getting applications by status: {} with pagination: {}", status, pageable);
         
@@ -130,7 +130,7 @@ public class ApplicationController {
     @PreAuthorize("hasRole('ADMIN') or #businessOwnerId == authentication.name")
     public ResponseEntity<Page<Application>> getApplicationsForBusinessOwner(
             @Parameter(description = "Business Owner ID") @PathVariable String businessOwnerId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "submittedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         log.info("Getting applications for business owner: {} with pagination: {}", businessOwnerId, pageable);
         Page<Application> applications = applicationService.getApplicationsForBusinessOwner(businessOwnerId, pageable);
         return ResponseEntity.ok(applications);
@@ -363,7 +363,56 @@ public class ApplicationController {
         application.setFranchiseId(request.getFranchiseId());
         application.setFranchiseName(request.getFranchiseName());
         application.setApplicationFee(request.getApplicationFee());
-        // Add more mapping as needed
+
+        // Map Personal Information
+        Application.PersonalInfo personalInfo = new Application.PersonalInfo();
+        personalInfo.setFirstName(request.getFirstName());
+        personalInfo.setLastName(request.getLastName());
+        personalInfo.setEmail(request.getEmail());
+        personalInfo.setPhone(request.getPhone());
+        personalInfo.setDateOfBirth(request.getDateOfBirth());
+        personalInfo.setSsn(request.getSsn());
+        personalInfo.setEmergencyContactName(request.getEmergencyContactName());
+        personalInfo.setEmergencyContactPhone(request.getEmergencyContactPhone());
+
+        // Map Personal Address
+        Application.Address personalAddress = new Application.Address();
+        personalAddress.setStreet(request.getStreet());
+        personalAddress.setCity(request.getCity());
+        personalAddress.setState(request.getState());
+        personalAddress.setZipCode(request.getZipCode());
+        personalAddress.setCountry(request.getCountry());
+        personalInfo.setAddress(personalAddress);
+        application.setPersonalInfo(personalInfo);
+
+        // Map Financial Information
+        Application.FinancialInfo financialInfo = new Application.FinancialInfo();
+        financialInfo.setNetWorth(request.getNetWorth());
+        financialInfo.setLiquidAssets(request.getLiquidAssets());
+        financialInfo.setAnnualIncome(request.getAnnualIncome());
+        financialInfo.setCreditScore(request.getCreditScore());
+        financialInfo.setHasDebt(request.getHasDebt());
+        financialInfo.setDebtAmount(request.getDebtAmount());
+        financialInfo.setInvestmentSource(request.getInvestmentSource());
+        application.setFinancialInfo(financialInfo);
+
+        // Map Business Information
+        Application.BusinessInfo businessInfo = new Application.BusinessInfo();
+        businessInfo.setTimelineToOpen(request.getTimelineToOpen());
+        businessInfo.setFullTimeCommitment(request.getFullTimeCommitment());
+        businessInfo.setHasPartners(request.getHasPartners());
+        businessInfo.setPartnerDetails(request.getPartnerDetails());
+
+        // Map Preferred Location
+        Application.Address preferredLocation = new Application.Address();
+        preferredLocation.setStreet(request.getPreferredStreet());
+        preferredLocation.setCity(request.getPreferredCity());
+        preferredLocation.setState(request.getPreferredState());
+        preferredLocation.setZipCode(request.getPreferredZipCode());
+        preferredLocation.setCountry(request.getPreferredCountry());
+        businessInfo.setPreferredLocation(preferredLocation);
+        application.setBusinessInfo(businessInfo);
+
         return application;
     }
 

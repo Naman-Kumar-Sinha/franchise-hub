@@ -255,7 +255,7 @@ export class ApplicationService {
     if (this.shouldUseMockService()) {
       return this.mockDataService.getApplicationsForPartner(partnerId);
     } else {
-      return this.apiApplicationService.getApplications({ partnerId }).pipe(
+      return this.apiApplicationService.getApplicationsByApplicant(partnerId).pipe(
         catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationsForPartner(partnerId)))
       );
     }

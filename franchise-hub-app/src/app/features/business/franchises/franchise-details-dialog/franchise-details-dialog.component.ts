@@ -12,6 +12,7 @@ import { CurrencyService } from '../../../../core/services/currency.service';
 
 export interface FranchiseDetailsDialogData {
   franchise: Franchise;
+  mode?: 'business' | 'partner'; // business = show edit button, partner = show apply button
 }
 
 @Component({
@@ -244,9 +245,13 @@ export interface FranchiseDetailsDialogData {
 
       <div mat-dialog-actions class="dialog-actions">
         <button mat-button mat-dialog-close>Close</button>
-        <button mat-raised-button color="primary" (click)="editFranchise()">
+        <button *ngIf="data.mode === 'business' || !data.mode" mat-raised-button color="primary" (click)="editFranchise()">
           <mat-icon>edit</mat-icon>
           Edit Franchise
+        </button>
+        <button *ngIf="data.mode === 'partner'" mat-raised-button color="primary" (click)="applyToFranchise()">
+          <mat-icon>send</mat-icon>
+          Apply Now
         </button>
       </div>
     </div>
@@ -378,5 +383,9 @@ export class FranchiseDetailsDialogComponent {
 
   editFranchise(): void {
     this.dialogRef.close({ action: 'edit', franchise: this.franchise });
+  }
+
+  applyToFranchise(): void {
+    this.dialogRef.close({ action: 'apply', franchise: this.franchise });
   }
 }

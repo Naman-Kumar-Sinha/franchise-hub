@@ -257,19 +257,26 @@ export class ApplicationDetailDialogComponent {
 
   getStatusColor(status: ApplicationStatus): 'primary' | 'accent' | 'warn' {
     switch (status) {
-      case ApplicationStatus.APPROVED: return 'primary';
+      case ApplicationStatus.DRAFT: return 'accent';
+      case ApplicationStatus.SUBMITTED: return 'accent';
       case ApplicationStatus.UNDER_REVIEW: return 'accent';
+      case ApplicationStatus.APPROVED: return 'primary';
       case ApplicationStatus.REJECTED: return 'warn';
+      case ApplicationStatus.WITHDRAWN: return 'warn';
+      case ApplicationStatus.DEACTIVATED: return 'warn';
       default: return 'accent';
     }
   }
 
   getStatusText(status: ApplicationStatus): string {
     switch (status) {
+      case ApplicationStatus.DRAFT: return 'Draft';
       case ApplicationStatus.SUBMITTED: return 'Submitted';
       case ApplicationStatus.UNDER_REVIEW: return 'Under Review';
       case ApplicationStatus.APPROVED: return 'Approved';
       case ApplicationStatus.REJECTED: return 'Rejected';
+      case ApplicationStatus.WITHDRAWN: return 'Withdrawn';
+      case ApplicationStatus.DEACTIVATED: return 'Deactivated';
       default: return 'Unknown';
     }
   }
@@ -286,8 +293,10 @@ export class ApplicationDetailDialogComponent {
   getPaymentStatusText(status: PaymentStatus): string {
     switch (status) {
       case PaymentStatus.PENDING: return 'Payment Pending';
+      case PaymentStatus.PROCESSING: return 'Payment Processing';
       case PaymentStatus.COMPLETED: return 'Payment Completed';
       case PaymentStatus.FAILED: return 'Payment Failed';
+      case PaymentStatus.REFUNDED: return 'Payment Refunded';
       default: return 'Unknown';
     }
   }

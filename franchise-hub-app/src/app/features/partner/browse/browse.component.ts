@@ -15,6 +15,7 @@ import { FranchiseService } from '../../../core/services/franchise.service';
 import { FranchiseIconService } from '../../../core/services/franchise-icon.service';
 import { CurrencyService } from '../../../core/services/currency.service';
 import { Franchise, FranchiseStatus } from '../../../core/models/franchise.model';
+import { FranchiseDetailsDialogComponent } from '../../business/franchises/franchise-details-dialog/franchise-details-dialog.component';
 
 @Component({
   selector: 'app-browse',
@@ -513,13 +514,29 @@ export class BrowseComponent implements OnInit {
   }
 
   viewDetails(franchise: Franchise) {
-    // TODO: Open franchise details dialog or navigate to details page
-    console.log('View details for:', franchise.name);
+    console.log('🔍 Opening franchise details dialog for:', franchise.name);
+
+    const dialogRef = this.dialog.open(FranchiseDetailsDialogComponent, {
+      width: '800px',
+      maxWidth: '90vw',
+      maxHeight: '90vh',
+      data: { franchise, mode: 'partner' }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result && result.action === 'apply') {
+        // If user clicked apply from the dialog, navigate to application form with franchise from dialog
+        this.applyToFranchise(result.franchise || franchise);
+      }
+    });
   }
 
   applyToFranchise(franchise: Franchise) {
-    // Navigate to application form with franchise pre-selected
-    this.router.navigate(['/partner/applications/new', franchise.id]);
+    // Navigate to application form with franchise data passed via router state
+    console.log('🚀 Browse - Navigating to application form with franchise:', franchise.name);
+    this.router.navigate(['/partner/applications/new', franchise.id], {
+      state: { franchise: franchise }
+    });
   }
 
   formatCurrency(amount: number): string {

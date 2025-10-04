@@ -129,6 +129,7 @@ export interface ApplicationDocument {
 
 export interface ApplicationCreateData {
   franchiseId: string;
+  franchiseName?: string;
   personalInfo: {
     firstName: string;
     lastName: string;
@@ -139,6 +140,10 @@ export interface ApplicationCreateData {
     state: string;
     zipCode: string;
     dateOfBirth: Date;
+    country?: string;
+    ssn?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
   };
   financialInfo: {
     netWorth: number;
@@ -149,6 +154,10 @@ export interface ApplicationCreateData {
     hasBusinessExperience: boolean;
     businessExperienceDetails?: string;
     yearsOfExperience?: number;
+    applicationFee?: number;
+    hasDebt?: boolean;
+    debtAmount?: number;
+    investmentSource?: string;
   };
   businessInfo: {
     preferredLocation: {

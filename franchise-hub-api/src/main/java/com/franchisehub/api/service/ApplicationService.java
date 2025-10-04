@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -118,10 +119,9 @@ public class ApplicationService {
      */
     public Application createApplication(Application application, String applicantId, String franchiseId) {
         log.debug("Creating new application for franchise: {} by applicant: {}", franchiseId, applicantId);
-        
-        // Validate applicant exists
-        User applicant = userRepository.findById(applicantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Applicant not found with ID: " + applicantId));
+
+        // Find or create applicant user
+        User applicant = findOrCreateUser(applicantId, application);
         
         if (applicant.getRole() != User.UserRole.PARTNER) {
             throw new BadRequestException("User must have PARTNER role to submit applications");
@@ -143,7 +143,8 @@ public class ApplicationService {
         }
 
         // Set application details
-        application.setApplicantId(applicantId);
+        application.setId(java.util.UUID.randomUUID().toString());
+        application.setApplicantId(applicant.getId()); // Use User's UUID instead of email
         application.setApplicantName(applicant.getFirstName() + " " + applicant.getLastName());
         application.setApplicantEmail(applicant.getEmail());
         application.setFranchiseId(franchiseId);
@@ -609,5 +610,55 @@ public class ApplicationService {
         public long getTotalApplications() { return total; }
         public long getApprovedApplications() { return approved; }
         public long getPendingApplications() { return submitted + underReview; }
+    }
+
+    /**
+     * Find existing user or create a new one for real accounts that don't have User records
+     */
+    private User findOrCreateUser(String applicantId, Application application) {
+        // First try to find existing user by ID (for demo accounts)
+        Optional<User> existingUser = userRepository.findById(applicantId);
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+
+        // If not found by ID, try to find by email (applicantId is email for real accounts)
+        Optional<User> userByEmail = userRepository.findByEmail(applicantId);
+        if (userByEmail.isPresent()) {
+            return userByEmail.get();
+        }
+
+        // Create new user for real accounts that don't have User records
+        log.info("Creating new User record for real account: {}", applicantId);
+        User newUser = new User();
+        newUser.setId(java.util.UUID.randomUUID().toString());
+        newUser.setEmail(applicantId);
+
+        // Use application data to populate user fields
+        Application.PersonalInfo personalInfo = application.getPersonalInfo();
+        if (personalInfo != null) {
+            newUser.setFirstName(personalInfo.getFirstName() != null ? personalInfo.getFirstName() : "Unknown");
+            newUser.setLastName(personalInfo.getLastName() != null ? personalInfo.getLastName() : "User");
+            newUser.setPhone(personalInfo.getPhone() != null ? personalInfo.getPhone() : "");
+        } else {
+            newUser.setFirstName("Unknown");
+            newUser.setLastName("User");
+            newUser.setPhone("");
+        }
+        newUser.setRole(User.UserRole.PARTNER); // Default to PARTNER for application submissions
+        newUser.setPassword(""); // No password for JWT-authenticated users
+        newUser.setIsActive(true);
+        newUser.setCreatedAt(java.time.LocalDateTime.now());
+        newUser.setUpdatedAt(java.time.LocalDateTime.now());
+
+        // Set default preferences
+        User.UserPreferences preferences = new User.UserPreferences();
+        preferences.setNotifications(new User.UserPreferences.NotificationSettings(true, false, false));
+        preferences.setTheme(User.UserPreferences.Theme.LIGHT);
+        preferences.setLanguage("en");
+        preferences.setTimezone("UTC");
+        newUser.setPreferences(preferences);
+
+        return userRepository.save(newUser);
     }
 }

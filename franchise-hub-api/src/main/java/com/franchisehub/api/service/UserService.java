@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -357,6 +359,33 @@ public class UserService {
         }
         
         return false;
+    }
+
+    /**
+     * Check if the given user ID matches the currently authenticated user
+     * Used for security annotations to verify user access to their own resources
+     */
+    @Transactional(readOnly = true)
+    public boolean isCurrentUser(String userId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+
+        // Get the email from the authentication (JWT subject)
+        String currentUserEmail = authentication.getName();
+
+        try {
+            // Get the current user by email and check if their ID matches
+            User currentUser = getUserByEmail(currentUserEmail);
+            boolean isMatch = currentUser.getId().equals(userId);
+
+            log.debug("Checking if user ID {} matches current user {}: {}", userId, currentUserEmail, isMatch);
+            return isMatch;
+        } catch (ResourceNotFoundException e) {
+            log.warn("Current authenticated user not found in database: {}", currentUserEmail);
+            return false;
+        }
     }
 
     /**

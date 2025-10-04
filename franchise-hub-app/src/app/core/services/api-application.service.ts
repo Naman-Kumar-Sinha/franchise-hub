@@ -13,6 +13,35 @@ import {
   DocumentType
 } from '../models/application.model';
 
+export interface ApiPagedResponse<T> {
+  content: T[];
+  pageable: {
+    pageNumber: number;
+    pageSize: number;
+    sort: {
+      sorted: boolean;
+      unsorted: boolean;
+      empty: boolean;
+    };
+    offset: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  numberOfElements: number;
+  first: boolean;
+  size: number;
+  number: number;
+  sort: {
+    sorted: boolean;
+    unsorted: boolean;
+    empty: boolean;
+  };
+  empty: boolean;
+}
+
 export interface ApiApplication {
   id: string;
   applicantId: string;
@@ -30,17 +59,15 @@ export interface ApiApplication {
     phone: string;
     dateOfBirth?: string;
     ssn?: string;
-    personalAddress: {
+    address: {
       street: string;
       city: string;
       state: string;
       zipCode: string;
       country: string;
     };
-    emergencyContact: {
-      name: string;
-      phone: string;
-    };
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
   };
   financialInfo: {
     annualIncome: number;
@@ -64,9 +91,9 @@ export interface ApiApplication {
       country?: string;
     };
     timelineToOpen: string;
-    motivation: string;
-    questions?: string;
   };
+  motivation?: string;
+  questions?: string;
   submittedAt: string;
   updatedAt?: string;
   reviewedAt?: string;
@@ -158,9 +185,19 @@ export class ApiApplicationService {
   }
 
   getApplicationsByApplicant(applicantId: string): Observable<Application[]> {
-    const params = new HttpParams().set('applicantId', applicantId);
-    return this.http.get<ApiApplication[]>(this.baseUrl, { params }).pipe(
-      map(apiApplications => apiApplications.map(this.mapApiApplicationToApplication))
+    const url = `${environment.apiUrl}/applications/applicant/${applicantId}`;
+    console.log('🌐 API Service - Making request to:', url);
+    return this.http.get<ApiPagedResponse<ApiApplication>>(url).pipe(
+      map(response => {
+        console.log('🌐 API Service - Raw response:', response);
+        console.log('🌐 API Service - Content array length:', response.content?.length || 0);
+        if (response.content && response.content.length > 0) {
+          console.log('🌐 API Service - First application raw data:', response.content[0]);
+        }
+        const mappedApplications = response.content.map(this.mapApiApplicationToApplication.bind(this));
+        console.log('🌐 API Service - Mapped applications:', mappedApplications.length, mappedApplications);
+        return mappedApplications;
+      })
     );
   }
 
@@ -171,8 +208,20 @@ export class ApiApplicationService {
     );
   }
 
+  private mapPaymentStatus(backendStatus: string): PaymentStatus {
+    switch (backendStatus) {
+      case 'PENDING': return PaymentStatus.PENDING;
+      case 'PAID': return PaymentStatus.COMPLETED;
+      case 'FAILED': return PaymentStatus.FAILED;
+      case 'REFUNDED': return PaymentStatus.REFUNDED;
+      default: return PaymentStatus.PENDING;
+    }
+  }
+
   private mapApiApplicationToApplication(apiApplication: ApiApplication): Application {
-    return {
+    console.log('🔄 Mapping API application:', apiApplication.id, apiApplication);
+    try {
+      const mapped = {
       id: apiApplication.id,
       partnerId: apiApplication.applicantId,
       partnerName: apiApplication.applicantName,
@@ -184,16 +233,16 @@ export class ApiApplicationService {
       franchiseName: apiApplication.franchiseName,
       status: apiApplication.status as ApplicationStatus,
       applicationFee: apiApplication.applicationFee || 0,
-      paymentStatus: apiApplication.paymentStatus as PaymentStatus,
+      paymentStatus: this.mapPaymentStatus(apiApplication.paymentStatus),
       personalInfo: {
         firstName: apiApplication.personalInfo.firstName,
         lastName: apiApplication.personalInfo.lastName,
         email: apiApplication.personalInfo.email,
         phone: apiApplication.personalInfo.phone,
-        address: apiApplication.personalInfo.personalAddress?.street || '',
-        city: apiApplication.personalInfo.personalAddress?.city || '',
-        state: apiApplication.personalInfo.personalAddress?.state || '',
-        zipCode: apiApplication.personalInfo.personalAddress?.zipCode || '',
+        address: apiApplication.personalInfo.address?.street || '',
+        city: apiApplication.personalInfo.address?.city || '',
+        state: apiApplication.personalInfo.address?.state || '',
+        zipCode: apiApplication.personalInfo.address?.zipCode || '',
         dateOfBirth: apiApplication.personalInfo.dateOfBirth ? new Date(apiApplication.personalInfo.dateOfBirth) : new Date()
       },
       financialInfo: {
@@ -212,13 +261,13 @@ export class ApiApplicationService {
           city: apiApplication.businessInfo.preferredLocation.city || '',
           state: apiApplication.businessInfo.preferredLocation.state || '',
           zipCode: apiApplication.businessInfo.preferredLocation.zipCode || '',
-          country: apiApplication.businessInfo.preferredLocation.country || 'US'
+          country: apiApplication.businessInfo.preferredLocation.country || 'India'
         },
-        preferredStates: apiApplication.businessInfo.preferredStates,
-        timelineToOpen: apiApplication.businessInfo.timelineToOpen,
-        fullTimeCommitment: apiApplication.businessInfo.fullTimeCommitment,
-        hasPartners: apiApplication.businessInfo.hasPartners,
-        partnerDetails: apiApplication.businessInfo.partnerDetails
+        preferredStates: apiApplication.businessInfo.preferredStates || [],
+        timelineToOpen: apiApplication.businessInfo.timelineToOpen || '',
+        fullTimeCommitment: apiApplication.businessInfo.fullTimeCommitment || false,
+        hasPartners: apiApplication.businessInfo.hasPartners || false,
+        partnerDetails: apiApplication.businessInfo.partnerDetails || ''
       },
       submittedAt: new Date(apiApplication.submittedAt),
       updatedAt: apiApplication.updatedAt ? new Date(apiApplication.updatedAt) : new Date(),
@@ -229,19 +278,73 @@ export class ApiApplicationService {
       paidAt: apiApplication.paidAt ? new Date(apiApplication.paidAt) : undefined,
       paymentTransactionId: apiApplication.paymentTransactionId,
       isActive: apiApplication.isActive,
-      motivation: '',
-      questions: '',
-      references: [],
-      documents: []
-    };
+        motivation: apiApplication.motivation || '',
+        questions: apiApplication.questions || '',
+        references: [],
+        documents: []
+      };
+      console.log('✅ Successfully mapped application:', mapped.id, mapped);
+      return mapped;
+    } catch (error) {
+      console.error('❌ Error mapping application:', error, apiApplication);
+      throw error;
+    }
   }
 
   private mapApplicationCreateDataToApi(createData: Partial<ApplicationCreateData>): any {
+    const personalInfo = createData.personalInfo || {} as any;
+    const financialInfo = createData.financialInfo || {} as any;
+    const businessInfo = createData.businessInfo || {} as any;
+    const preferredLocation = businessInfo.preferredLocation || {} as any;
+
     return {
+      // Required fields
       franchiseId: createData.franchiseId,
-      personalInfo: createData.personalInfo,
-      financialInfo: createData.financialInfo,
-      businessInfo: createData.businessInfo
+      franchiseName: createData.franchiseName || 'Unknown Franchise', // Will be set from franchise data
+      applicationFee: financialInfo.applicationFee || 0, // Default application fee
+
+      // Personal Information (flattened)
+      firstName: personalInfo.firstName,
+      lastName: personalInfo.lastName,
+      email: personalInfo.email,
+      phone: personalInfo.phone,
+      dateOfBirth: personalInfo.dateOfBirth ? new Date(personalInfo.dateOfBirth).toISOString().split('T')[0] : null,
+      ssn: personalInfo.ssn,
+
+      // Personal Address (flattened)
+      street: personalInfo.address,
+      city: personalInfo.city,
+      state: personalInfo.state,
+      zipCode: personalInfo.zipCode,
+      country: personalInfo.country || 'India',
+
+      // Emergency Contact
+      emergencyContactName: personalInfo.emergencyContactName,
+      emergencyContactPhone: personalInfo.emergencyContactPhone,
+
+      // Financial Information (flattened)
+      netWorth: financialInfo.netWorth || 0,
+      liquidAssets: financialInfo.liquidCapital || 0, // Map liquidCapital to liquidAssets
+      annualIncome: financialInfo.annualIncome || 0,
+      creditScore: financialInfo.creditScore || 650,
+      hasDebt: financialInfo.hasDebt || false,
+      debtAmount: financialInfo.debtAmount || 0,
+      investmentSource: financialInfo.investmentSource || 'Personal Savings',
+
+      // Business Information (flattened)
+      preferredStreet: preferredLocation.address,
+      preferredCity: preferredLocation.city,
+      preferredState: preferredLocation.state,
+      preferredZipCode: preferredLocation.zipCode,
+      preferredCountry: preferredLocation.country || 'India',
+      timelineToOpen: businessInfo.timelineToOpen,
+      fullTimeCommitment: businessInfo.fullTimeCommitment || false,
+      hasPartners: businessInfo.hasPartners || false,
+      partnerDetails: businessInfo.partnerDetails,
+
+      // Additional fields
+      motivation: createData.motivation || '',
+      questions: createData.questions || ''
     };
   }
 }
