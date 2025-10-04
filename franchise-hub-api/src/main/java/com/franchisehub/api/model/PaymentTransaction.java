@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 public class PaymentTransaction {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
     @Column(nullable = false)

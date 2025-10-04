@@ -42,7 +42,7 @@ export const environment = {
     payments: {
       transactions: '/payments/transactions',
       requests: '/payments/requests',
-      processApplication: '/payments/process-application',
+      processApplication: '/payments/application-fee',
       settlement: '/payments/settlement'
     },
     notifications: {

@@ -102,12 +102,11 @@ export class ApiPaymentService {
   }
 
   processApplicationPayment(applicationId: string, paymentData: any): Observable<PaymentTransaction> {
-    const url = `${environment.apiUrl}${environment.endpoints.payments.processApplication}`;
+    const url = `${environment.apiUrl}${environment.endpoints.payments.processApplication}/${applicationId}`;
     const requestData = {
-      applicationId,
-      ...paymentData
+      paymentMethod: paymentData.paymentMethod || 'UPI'
     };
-    
+
     return this.http.post<ApiPaymentTransaction>(url, requestData).pipe(
       map(apiTransaction => this.mapApiTransactionToTransaction(apiTransaction)),
       catchError(this.handleError)

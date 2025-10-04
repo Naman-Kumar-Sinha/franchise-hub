@@ -116,7 +116,8 @@ public class PaymentService {
         BigDecimal platformFeeRate = new BigDecimal("0.02");
         BigDecimal platformFee = transaction.getAmount().multiply(platformFeeRate);
         transaction.setPlatformFee(platformFee);
-        transaction.setNetAmount(transaction.getAmount().subtract(platformFee));
+        // Net amount = amount + platform fee (total amount charged to user)
+        transaction.setNetAmount(transaction.getAmount().add(platformFee));
 
         PaymentTransaction savedTransaction = paymentTransactionRepository.save(transaction);
         log.info("Created payment transaction with ID: {}", savedTransaction.getId());
@@ -153,16 +154,20 @@ public class PaymentService {
     /**
      * Process payment for application fee
      */
-    public PaymentTransaction processApplicationFeePayment(String applicationId, String userId, 
+    public PaymentTransaction processApplicationFeePayment(String applicationId, String userEmail,
                                                          PaymentTransaction.PaymentMethod method) {
-        log.debug("Processing application fee payment for application: {} by user: {}", applicationId, userId);
-        
+        log.debug("Processing application fee payment for application: {} by user: {}", applicationId, userEmail);
+
         // Validate application exists
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found with ID: " + applicationId));
-        
+
+        // Find user by email to get the actual user ID
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
+
         // Verify user owns the application
-        if (!application.getApplicantId().equals(userId)) {
+        if (!application.getApplicantId().equals(user.getId())) {
             throw new BadRequestException("You can only pay for your own applications");
         }
 
@@ -181,8 +186,11 @@ public class PaymentService {
         transaction.setFranchiseId(application.getFranchiseId());
         transaction.setApplicationId(applicationId);
 
-        PaymentTransaction savedTransaction = createTransaction(transaction, userId);
-        
+        PaymentTransaction savedTransaction = createTransaction(transaction, user.getId());
+
+        // Simulate payment processing and add payment details
+        simulatePaymentProcessing(savedTransaction);
+
         // Update application payment status
         application.setPaymentTransactionId(savedTransaction.getId());
         application.setPaymentStatus(Application.PaymentStatus.PAID);
@@ -190,6 +198,57 @@ public class PaymentService {
         applicationRepository.save(application);
 
         return savedTransaction;
+    }
+
+    /**
+     * Simulate payment processing and add payment-specific details
+     */
+    private void simulatePaymentProcessing(PaymentTransaction transaction) {
+        // Set status to SUCCESS for successful payment
+        transaction.setStatus(PaymentTransaction.TransactionStatus.SUCCESS);
+        transaction.setProcessedAt(LocalDateTime.now());
+        transaction.setUpdatedAt(LocalDateTime.now());
+
+        // Generate gateway payment ID
+        transaction.setGatewayPaymentId("PAY_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
+
+        // Create payment details object
+        PaymentTransaction.PaymentDetails paymentDetails = new PaymentTransaction.PaymentDetails();
+
+        // Add payment method specific details
+        switch (transaction.getMethod()) {
+            case NET_BANKING:
+                paymentDetails.setBankName("State Bank of India");
+                paymentDetails.setBankTransactionId("SBI" + System.currentTimeMillis());
+                break;
+            case UPI:
+                paymentDetails.setUpiId("user@paytm");
+                paymentDetails.setUpiTransactionId("UPI" + System.currentTimeMillis());
+                break;
+            case CREDIT_CARD:
+            case DEBIT_CARD:
+                paymentDetails.setCardLast4("1234");
+                paymentDetails.setCardNetwork("VISA");
+                paymentDetails.setCardType(transaction.getMethod() == PaymentTransaction.PaymentMethod.CREDIT_CARD ? "CREDIT" : "DEBIT");
+                break;
+            case WALLET:
+                paymentDetails.setWalletName("Paytm Wallet");
+                paymentDetails.setWalletTransactionId("WALLET" + System.currentTimeMillis());
+                break;
+            case BANK_TRANSFER:
+                paymentDetails.setBankName("HDFC Bank");
+                paymentDetails.setBankTransactionId("HDFC" + System.currentTimeMillis());
+                break;
+        }
+
+        // Set payment details
+        transaction.setPaymentDetails(paymentDetails);
+
+        // Generate gateway signature for security
+        transaction.setGatewaySignature("SIG_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20));
+
+        // Save the updated transaction
+        paymentTransactionRepository.save(transaction);
     }
 
     // ==================== PAYMENT REQUESTS ====================
@@ -211,6 +270,28 @@ public class PaymentService {
         log.debug("Getting payment request by ID: {}", id);
         return paymentRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment request not found with ID: " + id));
+    }
+
+    /**
+     * Get payment requests by application ID (for application owner)
+     */
+    @Transactional(readOnly = true)
+    public Page<PaymentRequest> getPaymentRequestsByApplication(String applicationId, String userEmail, Pageable pageable) {
+        log.debug("Getting payment requests for application: {} by user: {}", applicationId, userEmail);
+
+        // Validate application exists and user owns it
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found with ID: " + applicationId));
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
+
+        // Verify user owns the application
+        if (!application.getApplicantId().equals(user.getId())) {
+            throw new BadRequestException("You can only view payment requests for your own applications");
+        }
+
+        return paymentRequestRepository.findByApplicationId(applicationId, pageable);
     }
 
     /**

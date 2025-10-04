@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -192,12 +193,24 @@ public class PaymentController {
         @ApiResponse(responseCode = "403", description = "Forbidden - Admin only")
     })
     @GetMapping("/requests")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<PaymentRequest>> getAllPaymentRequests(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        log.info("Getting all payment requests with pagination: {}", pageable);
-        Page<PaymentRequest> requests = paymentService.getAllPaymentRequests(pageable);
-        return ResponseEntity.ok(requests);
+    public ResponseEntity<Page<PaymentRequest>> getPaymentRequests(
+            @RequestParam(required = false) String applicationId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authentication) {
+
+        if (applicationId != null) {
+            log.info("Getting payment requests for application: {} by user: {}", applicationId, authentication.getName());
+            Page<PaymentRequest> requests = paymentService.getPaymentRequestsByApplication(applicationId, authentication.getName(), pageable);
+            return ResponseEntity.ok(requests);
+        } else {
+            // Admin-only access for all payment requests
+            if (!authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+                throw new AccessDeniedException("Access denied");
+            }
+            log.info("Getting all payment requests with pagination: {}", pageable);
+            Page<PaymentRequest> requests = paymentService.getAllPaymentRequests(pageable);
+            return ResponseEntity.ok(requests);
+        }
     }
 
     @Operation(summary = "Get payment request by ID", description = "Retrieve a specific payment request by its ID")

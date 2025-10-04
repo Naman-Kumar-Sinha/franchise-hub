@@ -26,6 +26,8 @@ public interface PaymentRequestRepository extends JpaRepository<PaymentRequest, 
 
     List<PaymentRequest> findByApplicationId(String applicationId);
 
+    Page<PaymentRequest> findByApplicationId(String applicationId, Pageable pageable);
+
     List<PaymentRequest> findByStatus(PaymentRequest.PaymentRequestStatus status);
 
     Page<PaymentRequest> findByStatus(PaymentRequest.PaymentRequestStatus status, Pageable pageable);

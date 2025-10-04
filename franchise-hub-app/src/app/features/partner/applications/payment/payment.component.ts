@@ -17,6 +17,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { ApplicationService } from '../../../../core/services/application.service';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { CurrencyService } from '../../../../core/services/currency.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { FranchiseApplication, PaymentStatus, PaymentRequest } from '../../../../core/models/application.model';
 import { PaymentMethod } from '../../../../core/models/transaction.model';
 
@@ -469,6 +470,7 @@ export class PaymentComponent implements OnInit {
   private applicationService = inject(ApplicationService);
   private paymentService = inject(PaymentService);
   private currencyService = inject(CurrencyService);
+  private authService = inject(AuthService);
   private snackBar = inject(MatSnackBar);
 
   application: FranchiseApplication | null = null;
@@ -522,48 +524,54 @@ export class PaymentComponent implements OnInit {
   }
 
   private loadApplication(applicationId: string) {
-    // Mock loading application details
-    setTimeout(() => {
-      this.applicationService.getApplicationsForPartner('demo-partner-user').subscribe({
-        next: (applications) => {
-          this.application = applications.find(app => app.id === applicationId) || null;
-          if (!this.application) {
-            this.snackBar.open('Application not found', 'Close', { duration: 3000 });
-            this.router.navigate(['/partner/applications']);
-          } else if (this.application.paymentStatus === PaymentStatus.COMPLETED) {
-            this.snackBar.open('Payment already completed for this application', 'Close', { duration: 3000 });
-            this.router.navigate(['/partner/applications']);
-          }
-          this.isLoading = false;
-        },
-        error: () => {
-          this.snackBar.open('Error loading application', 'Close', { duration: 3000 });
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) {
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    this.applicationService.getApplicationsForPartner(currentUser.id).subscribe({
+      next: (applications) => {
+        this.application = applications.find(app => app.id === applicationId) || null;
+        if (!this.application) {
+          this.snackBar.open('Application not found', 'Close', { duration: 3000 });
           this.router.navigate(['/partner/applications']);
-          this.isLoading = false;
+        } else if (this.application.paymentStatus === PaymentStatus.COMPLETED) {
+          this.snackBar.open('Payment already completed for this application', 'Close', { duration: 3000 });
+          this.router.navigate(['/partner/applications']);
         }
-      });
-    }, 1000);
+        this.isLoading = false;
+      },
+      error: () => {
+        this.snackBar.open('Error loading application', 'Close', { duration: 3000 });
+        this.router.navigate(['/partner/applications']);
+        this.isLoading = false;
+      }
+    });
   }
 
   private loadPaymentRequests(paymentRequestIds: string[]) {
-    // Mock loading payment request details
-    setTimeout(() => {
-      this.paymentService.getPaymentRequestsForPartner('demo-partner-user').subscribe({
-        next: (allPaymentRequests) => {
-          this.paymentRequests = allPaymentRequests.filter(pr => paymentRequestIds.includes(pr.id));
-          if (this.paymentRequests.length === 0) {
-            this.snackBar.open('Payment requests not found', 'Close', { duration: 3000 });
-            this.router.navigate(['/partner/partnerships']);
-          }
-          this.isLoading = false;
-        },
-        error: () => {
-          this.snackBar.open('Error loading payment requests', 'Close', { duration: 3000 });
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) {
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    this.paymentService.getPaymentRequestsForPartner(currentUser.id).subscribe({
+      next: (allPaymentRequests) => {
+        this.paymentRequests = allPaymentRequests.filter(pr => paymentRequestIds.includes(pr.id));
+        if (this.paymentRequests.length === 0) {
+          this.snackBar.open('Payment requests not found', 'Close', { duration: 3000 });
           this.router.navigate(['/partner/partnerships']);
-          this.isLoading = false;
         }
-      });
-    }, 1000);
+        this.isLoading = false;
+      },
+      error: () => {
+        this.snackBar.open('Error loading payment requests', 'Close', { duration: 3000 });
+        this.router.navigate(['/partner/partnerships']);
+        this.isLoading = false;
+      }
+    });
   }
 
   private updateValidators(paymentMethod: PaymentMethod) {
