@@ -30,6 +30,18 @@ export class PaymentService {
     }
   }
 
+  getPaymentTransactionsForApplication(applicationId: string): Observable<PaymentTransaction[]> {
+    if (this.shouldUseMockService()) {
+      return this.mockDataService.getPaymentTransactionsForApplication(applicationId);
+    } else {
+      return this.apiPaymentService.getPaymentTransactionsForApplication(applicationId).pipe(
+        catchError(error => this.handleApiError(error, () =>
+          this.mockDataService.getPaymentTransactionsForApplication(applicationId)
+        ))
+      );
+    }
+  }
+
   getPaymentTransactionById(id: string): Observable<PaymentTransaction | undefined> {
     if (this.shouldUseMockService()) {
       return this.mockDataService.paymentTransactions$.pipe(

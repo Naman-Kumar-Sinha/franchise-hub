@@ -75,9 +75,19 @@ export class ApiPaymentService {
   getPaymentTransactions(filters?: any): Observable<PaymentTransaction[]> {
     const url = `${environment.apiUrl}${environment.endpoints.payments.transactions}`;
     const params = this.buildQueryParams(filters);
-    
+
     return this.http.get<ApiPaymentTransaction[]>(url, { params }).pipe(
       map(apiTransactions => apiTransactions.map(t => this.mapApiTransactionToTransaction(t))),
+      catchError(this.handleError)
+    );
+  }
+
+  getPaymentTransactionsForApplication(applicationId: string): Observable<PaymentTransaction[]> {
+    const url = `${environment.apiUrl}${environment.endpoints.payments.transactions}`;
+    const params = { applicationId };
+
+    return this.http.get<{content: ApiPaymentTransaction[]}>(url, { params }).pipe(
+      map(response => response.content.map(t => this.mapApiTransactionToTransaction(t))),
       catchError(this.handleError)
     );
   }
@@ -196,6 +206,8 @@ export class ApiPaymentService {
       franchiseId: apiTransaction.franchiseId,
       franchiseName: '', // Will need to be populated from franchise data
       amount: apiTransaction.amount,
+      platformFee: apiTransaction.platformFee,
+      netAmount: apiTransaction.netAmount,
       currency: apiTransaction.currency,
       status: apiTransaction.status as PaymentStatus,
       paymentMethod: apiTransaction.method,

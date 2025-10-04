@@ -1294,6 +1294,11 @@ export class MockDataService {
     return of(requests);
   }
 
+  getPaymentTransactionsForApplication(applicationId: string): Observable<PaymentTransaction[]> {
+    const transactions = this.mockPaymentTransactions.filter(pt => pt.applicationId === applicationId);
+    return of(transactions);
+  }
+
   getPaymentRequestsForPartner(partnerId: string): Observable<PaymentRequest[]> {
     const requests = this.mockPaymentRequests.filter(pr => pr.partnerId === partnerId);
     return of(requests);
@@ -1828,12 +1833,6 @@ export class MockDataService {
       .filter(entry => entry.applicationId === applicationId)
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     return of(timeline);
-  }
-
-  // Get payment transactions for application
-  getPaymentTransactionsForApplication(applicationId: string): Observable<PaymentTransaction[]> {
-    const transactions = this.mockPaymentTransactions.filter(pt => pt.applicationId === applicationId);
-    return of(transactions);
   }
 
   // Get refund requests for application

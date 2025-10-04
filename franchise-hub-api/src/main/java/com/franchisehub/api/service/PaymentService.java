@@ -295,6 +295,28 @@ public class PaymentService {
     }
 
     /**
+     * Get payment transactions by application ID (for application owner)
+     */
+    @Transactional(readOnly = true)
+    public Page<PaymentTransaction> getTransactionsByApplication(String applicationId, String userEmail, Pageable pageable) {
+        log.debug("Getting payment transactions for application: {} by user: {}", applicationId, userEmail);
+
+        // Validate application exists and user owns it
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found with ID: " + applicationId));
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
+
+        // Verify user owns the application
+        if (!application.getApplicantId().equals(user.getId())) {
+            throw new BadRequestException("You can only view payment transactions for your own applications");
+        }
+
+        return paymentTransactionRepository.findByApplicationId(applicationId, pageable);
+    }
+
+    /**
      * Get payment requests by recipient (to user)
      */
     @Transactional(readOnly = true)

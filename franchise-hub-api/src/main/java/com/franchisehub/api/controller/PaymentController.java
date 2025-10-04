@@ -44,12 +44,24 @@ public class PaymentController {
         @ApiResponse(responseCode = "403", description = "Forbidden - Admin only")
     })
     @GetMapping("/transactions")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<PaymentTransaction>> getAllTransactions(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        log.info("Getting all payment transactions with pagination: {}", pageable);
-        Page<PaymentTransaction> transactions = paymentService.getAllTransactions(pageable);
-        return ResponseEntity.ok(transactions);
+    public ResponseEntity<Page<PaymentTransaction>> getTransactions(
+            @RequestParam(required = false) String applicationId,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authentication) {
+
+        if (applicationId != null) {
+            log.info("Getting payment transactions for application: {} by user: {}", applicationId, authentication.getName());
+            Page<PaymentTransaction> transactions = paymentService.getTransactionsByApplication(applicationId, authentication.getName(), pageable);
+            return ResponseEntity.ok(transactions);
+        } else {
+            // Admin-only access for all payment transactions
+            if (!authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+                throw new AccessDeniedException("Access denied");
+            }
+            log.info("Getting all payment transactions with pagination: {}", pageable);
+            Page<PaymentTransaction> transactions = paymentService.getAllTransactions(pageable);
+            return ResponseEntity.ok(transactions);
+        }
     }
 
     @Operation(summary = "Get transaction by ID", description = "Retrieve a specific payment transaction by its ID")

@@ -17,7 +17,8 @@ import { ApplicationService } from '../../../core/services/application.service';
 import { PaymentService } from '../../../core/services/payment.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyService } from '../../../core/services/currency.service';
-import { FranchiseApplication, ApplicationStatus, PaymentStatus, PaymentRequest, PaymentRequestStatus } from '../../../core/models/application.model';
+import { FranchiseApplication, ApplicationStatus, PaymentStatus, PaymentRequest, PaymentRequestStatus, PaymentTransaction } from '../../../core/models/application.model';
+import { PaymentHistoryDialogComponent } from './payment-history-dialog/payment-history-dialog.component';
 import { ApplicationDetailDialogComponent } from './application-detail-dialog/application-detail-dialog.component';
 
 @Component({
@@ -135,6 +136,18 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
                           class="payment-requests-chip">
                           <mat-icon>payment</mat-icon>
                           Payment Requests
+                        </mat-chip>
+                        <!-- Payment Transaction Indicators -->
+                        <mat-chip
+                          *ngIf="getPaymentTransactionsForApplication(application.id).length > 0"
+                          [matBadge]="getCompletedPaymentTransactionsCount(application.id)"
+                          matBadgeColor="primary"
+                          matBadgeSize="small"
+                          [matBadgeHidden]="getCompletedPaymentTransactionsCount(application.id) === 0"
+                          class="payment-transactions-chip clickable-chip"
+                          (click)="openPaymentHistoryDialog(application.id, $event)">
+                          <mat-icon>receipt</mat-icon>
+                          Payment History
                         </mat-chip>
                       </mat-chip-set>
                     </div>
@@ -424,6 +437,25 @@ import { ApplicationDetailDialogComponent } from './application-detail-dialog/ap
       color: #f57c00;
     }
 
+    .payment-transactions-chip {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .payment-transactions-chip mat-icon {
+      color: #1976d2;
+    }
+
+    .clickable-chip {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .clickable-chip:hover {
+      opacity: 0.8;
+      transform: scale(1.02);
+    }
+
     @media (max-width: 768px) {
       .applications-container {
         padding: 16px;
@@ -459,6 +491,7 @@ export class ApplicationsComponent implements OnInit {
 
   applications: FranchiseApplication[] = [];
   paymentRequestsMap: Map<string, PaymentRequest[]> = new Map();
+  paymentTransactionsMap: Map<string, PaymentTransaction[]> = new Map();
   isLoading = true;
   selectedTabIndex = 0;
 
@@ -516,8 +549,9 @@ export class ApplicationsComponent implements OnInit {
         this.applications = applications;
         this.isLoading = false;
 
-        // Load payment requests for each application
+        // Load payment requests and transactions for each application
         this.loadPaymentRequestsForApplications();
+        this.loadPaymentTransactionsForApplications();
       },
       error: (error) => {
         console.error('❌ Error loading applications:', error);
@@ -737,13 +771,64 @@ export class ApplicationsComponent implements OnInit {
     });
   }
 
+  // Payment Transaction Methods
+  private loadPaymentTransactionsForApplications() {
+    this.applications.forEach(application => {
+      this.paymentService.getPaymentTransactionsForApplication(application.id).subscribe({
+        next: (transactions) => {
+          this.paymentTransactionsMap.set(application.id, transactions);
+          console.log(`💳 Payment transactions loaded for application ${application.id}:`, transactions.length);
+        },
+        error: (error) => {
+          console.error(`Error loading payment transactions for application ${application.id}:`, error);
+          this.paymentTransactionsMap.set(application.id, []);
+        }
+      });
+    });
+  }
+
   getPaymentRequestsForApplication(applicationId: string): PaymentRequest[] {
     return this.paymentRequestsMap.get(applicationId) || [];
+  }
+
+  getPaymentTransactionsForApplication(applicationId: string): PaymentTransaction[] {
+    return this.paymentTransactionsMap.get(applicationId) || [];
   }
 
   getPendingPaymentRequestsCount(applicationId: string): number {
     const requests = this.getPaymentRequestsForApplication(applicationId);
     return requests.filter(pr => pr.status === PaymentRequestStatus.PENDING).length;
+  }
+
+  getCompletedPaymentTransactionsCount(applicationId: string): number {
+    const transactions = this.getPaymentTransactionsForApplication(applicationId);
+    return transactions.filter(pt => pt.status === PaymentStatus.COMPLETED).length;
+  }
+
+  openPaymentHistoryDialog(applicationId: string, event: Event): void {
+    event.stopPropagation(); // Prevent triggering the card click
+
+    const transactions = this.getPaymentTransactionsForApplication(applicationId);
+    const application = this.applications.find(app => app.id === applicationId);
+
+    if (!application) {
+      console.error('Application not found:', applicationId);
+      return;
+    }
+
+    const dialogRef = this.dialog.open(PaymentHistoryDialogComponent, {
+      width: '800px',
+      maxHeight: '80vh',
+      data: {
+        applicationId: applicationId,
+        applicationName: application.franchiseName,
+        transactions: transactions
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      console.log('Payment history dialog closed');
+    });
   }
 
   settlePaymentRequests(applicationId: string) {

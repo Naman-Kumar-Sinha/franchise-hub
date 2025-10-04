@@ -203,6 +203,8 @@ export interface PaymentTransaction {
   franchiseId: string;
   franchiseName: string;
   amount: number;
+  platformFee?: number;
+  netAmount?: number;
   currency: string;
   status: PaymentStatus;
   paymentMethod: string;
