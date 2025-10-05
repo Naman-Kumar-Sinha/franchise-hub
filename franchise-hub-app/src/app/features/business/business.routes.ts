@@ -22,10 +22,11 @@ export const businessRoutes: Routes = [
     path: 'applications/:id',
     loadComponent: () => import('./applications/application-detail/application-detail.component').then(m => m.ApplicationDetailComponent)
   },
-  {
-    path: 'applications/:id/review',
-    loadComponent: () => import('./applications/application-review/application-review.component').then(m => m.ApplicationReviewComponent)
-  },
+  // Deprecated: Review functionality moved to Application Details page
+  // {
+  //   path: 'applications/:id/review',
+  //   loadComponent: () => import('./applications/application-review/application-review.component').then(m => m.ApplicationReviewComponent)
+  // },
   {
     path: 'applications/:id/timeline',
     loadComponent: () => import('./applications/application-timeline/application-timeline.component').then(m => m.ApplicationTimelineComponent)

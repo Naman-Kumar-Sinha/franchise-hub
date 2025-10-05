@@ -442,14 +442,13 @@ public class ApplicationService {
      * Approve application
      */
     @Transactional
-    public Application approveApplication(String id, String approvalComments, String reviewerId) {
-        log.debug("Approving application: {} by reviewer: {}", id, reviewerId);
+    public Application approveApplication(String id, String approvalComments, String reviewerEmail) {
+        log.debug("Approving application: {} by reviewer: {}", id, reviewerEmail);
 
         Application application = getApplicationById(id);
 
-        // Verify reviewer permissions (business owner or admin)
-        User reviewer = userRepository.findById(reviewerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Reviewer not found"));
+        // Resolve email to UUID if needed
+        User reviewer = userService.getUserByEmail(reviewerEmail);
 
         if (reviewer.getRole() != User.UserRole.ADMIN && reviewer.getRole() != User.UserRole.BUSINESS) {
             throw new BadRequestException("Only admins and business owners can approve applications");
@@ -460,14 +459,14 @@ public class ApplicationService {
             Franchise franchise = franchiseRepository.findById(application.getFranchiseId())
                     .orElseThrow(() -> new ResourceNotFoundException("Franchise not found"));
 
-            if (!franchise.getBusinessOwnerId().equals(reviewerId)) {
+            if (!franchise.getBusinessOwnerId().equals(reviewer.getId())) {
                 throw new BadRequestException("You can only approve applications for your own franchises");
             }
         }
 
         application.setStatus(Application.ApplicationStatus.APPROVED);
         application.setReviewNotes(approvalComments);
-        application.setReviewedBy(reviewerId);
+        application.setReviewedBy(reviewer.getId());
         application.setReviewedAt(LocalDateTime.now());
         application.setUpdatedAt(LocalDateTime.now());
 
@@ -480,14 +479,13 @@ public class ApplicationService {
      * Reject application
      */
     @Transactional
-    public Application rejectApplication(String id, String rejectionReason, String reviewerId) {
-        log.debug("Rejecting application: {} by reviewer: {}", id, reviewerId);
+    public Application rejectApplication(String id, String rejectionReason, String reviewerEmail) {
+        log.debug("Rejecting application: {} by reviewer: {}", id, reviewerEmail);
 
         Application application = getApplicationById(id);
 
-        // Verify reviewer permissions (business owner or admin)
-        User reviewer = userRepository.findById(reviewerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Reviewer not found"));
+        // Resolve email to UUID if needed
+        User reviewer = userService.getUserByEmail(reviewerEmail);
 
         if (reviewer.getRole() != User.UserRole.ADMIN && reviewer.getRole() != User.UserRole.BUSINESS) {
             throw new BadRequestException("Only admins and business owners can reject applications");
@@ -498,14 +496,14 @@ public class ApplicationService {
             Franchise franchise = franchiseRepository.findById(application.getFranchiseId())
                     .orElseThrow(() -> new ResourceNotFoundException("Franchise not found"));
 
-            if (!franchise.getBusinessOwnerId().equals(reviewerId)) {
+            if (!franchise.getBusinessOwnerId().equals(reviewer.getId())) {
                 throw new BadRequestException("You can only reject applications for your own franchises");
             }
         }
 
         application.setStatus(Application.ApplicationStatus.REJECTED);
         application.setRejectionReason(rejectionReason);
-        application.setReviewedBy(reviewerId);
+        application.setReviewedBy(reviewer.getId());
         application.setReviewedAt(LocalDateTime.now());
         application.setUpdatedAt(LocalDateTime.now());
 

@@ -154,15 +154,15 @@ export class ApiApplicationService {
   }
 
   approveApplication(id: string, notes?: string): Observable<Application> {
-    const data = { status: 'APPROVED', reviewNotes: notes };
-    return this.http.put<ApiApplication>(`${this.baseUrl}/${id}/approve`, data).pipe(
+    const params = new HttpParams().set('comments', notes || '');
+    return this.http.post<ApiApplication>(`${this.baseUrl}/${id}/approve`, null, { params }).pipe(
       map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
   rejectApplication(id: string, reason: string, notes?: string): Observable<Application> {
-    const data = { status: 'REJECTED', rejectionReason: reason, reviewNotes: notes };
-    return this.http.put<ApiApplication>(`${this.baseUrl}/${id}/reject`, data).pipe(
+    const params = new HttpParams().set('reason', reason);
+    return this.http.post<ApiApplication>(`${this.baseUrl}/${id}/reject`, null, { params }).pipe(
       map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }

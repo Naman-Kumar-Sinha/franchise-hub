@@ -8,7 +8,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterModule } from '@angular/router';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ApplicationService } from '../../../core/services/application.service';
 import { MockDataService } from '../../../core/services/mock-data.service';
@@ -21,6 +22,8 @@ import { Franchise } from '../../../core/models/franchise.model';
 import { Transaction } from '../../../core/models/transaction.model';
 import { catchError, of, takeUntil, distinctUntilChanged, shareReplay } from 'rxjs';
 import { Subject, BehaviorSubject } from 'rxjs';
+import { ApprovalDialogComponent } from '../applications/application-detail/approval-dialog.component';
+import { RejectionDialogComponent } from '../applications/application-detail/rejection-dialog.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -35,6 +38,7 @@ import { Subject, BehaviorSubject } from 'rxjs';
     MatProgressBarModule,
     MatMenuModule,
     MatTooltipModule,
+    MatDialogModule,
     RouterModule
   ],
   template: `
@@ -76,7 +80,7 @@ import { Subject, BehaviorSubject } from 'rxjs';
               </div>
               <div class="stat-details">
                 <h3>{{dashboardStats?.pendingApplications || 0}}</h3>
-                <p>Pending Reviews</p>
+                <p>Pending Applications</p>
                 <span class="stat-subtitle">{{dashboardStats?.totalApplications || 0}} total applications</span>
               </div>
             </div>
@@ -146,7 +150,7 @@ import { Subject, BehaviorSubject } from 'rxjs';
               </button>
               <button mat-raised-button color="accent" routerLink="/business/applications">
                 <mat-icon>assignment</mat-icon>
-                Review Applications
+                View Applications
               </button>
               <button mat-raised-button routerLink="/business/transactions">
                 <mat-icon>receipt</mat-icon>
@@ -193,13 +197,13 @@ import { Subject, BehaviorSubject } from 'rxjs';
             <mat-card-title>Pending Applications</mat-card-title>
             <div class="header-actions">
               <span class="application-count">{{pendingApplications.length}} pending</span>
-              <button mat-button routerLink="/business/applications">Review All</button>
+              <button mat-button routerLink="/business/applications">View All</button>
             </div>
           </mat-card-header>
           <mat-card-content>
             <div *ngIf="pendingApplications.length === 0" class="no-data">
               <mat-icon>assignment</mat-icon>
-              <p>No pending applications. Great job staying on top of reviews!</p>
+              <p>No pending applications. Great job staying on top of applications!</p>
             </div>
             <div *ngIf="pendingApplications.length > 0" class="applications-list">
               <div *ngFor="let application of pendingApplications" class="application-item">
@@ -220,7 +224,7 @@ import { Subject, BehaviorSubject } from 'rxjs';
                           (click)="viewApplicationDetails(application)"
                           matTooltip="View full application details">
                     <mat-icon>visibility</mat-icon>
-                    Review
+                    View Details
                   </button>
                   <button mat-raised-button
                           color="primary"
@@ -618,7 +622,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private mockDataService: MockDataService,
     private apiBusinessService: ApiBusinessService,
     private currencyService: CurrencyService,
-    private franchiseService: FranchiseService
+    private franchiseService: FranchiseService,
+    private router: Router,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit() {
@@ -807,31 +813,55 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Application management methods
   viewApplicationDetails(application: FranchiseApplication) {
     console.log('Viewing application details for:', application.personalInfo.firstName, application.personalInfo.lastName);
-    // TODO: Open application details dialog or navigate to details page
+    this.router.navigate(['/business/applications', application.id]);
   }
 
   approveApplication(applicationId: string) {
-    this.mockDataService.approveApplication(applicationId, 'Application approved from dashboard').subscribe(
-      (updatedApplication: any) => {
-        console.log('Application approved:', updatedApplication);
+    const application = this.pendingApplications.find(app => app.id === applicationId);
+    if (!application) return;
+
+    const dialogRef = this.dialog.open(ApprovalDialogComponent, {
+      width: '500px',
+      data: {
+        applicationId: application.id,
+        applicantName: `${application.personalInfo.firstName} ${application.personalInfo.lastName}`,
+        franchiseName: this.getFranchiseName(application.franchiseId)
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('✅ Application approved from dashboard:', result.notes);
         // Remove from pending list
         this.pendingApplications = this.pendingApplications.filter(app => app.id !== applicationId);
         // Refresh stats with force refresh
         this.loadStats(this.currentUser.id, true);
       }
-    );
+    });
   }
 
   rejectApplication(applicationId: string) {
-    this.mockDataService.rejectApplication(applicationId, 'Application rejected from dashboard').subscribe(
-      (updatedApplication: any) => {
-        console.log('Application rejected:', updatedApplication);
+    const application = this.pendingApplications.find(app => app.id === applicationId);
+    if (!application) return;
+
+    const dialogRef = this.dialog.open(RejectionDialogComponent, {
+      width: '500px',
+      data: {
+        applicationId: application.id,
+        applicantName: `${application.personalInfo.firstName} ${application.personalInfo.lastName}`,
+        franchiseName: this.getFranchiseName(application.franchiseId)
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('❌ Application rejected from dashboard:', result.reason);
         // Remove from pending list
         this.pendingApplications = this.pendingApplications.filter(app => app.id !== applicationId);
         // Refresh stats with force refresh
         this.loadStats(this.currentUser.id, true);
       }
-    );
+    });
   }
 
   // Public method to refresh dashboard data

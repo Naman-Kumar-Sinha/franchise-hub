@@ -21,6 +21,8 @@ import { FranchiseApplication, ApplicationStatus, PaymentStatus, PaymentRequest,
 import { PaymentRequestDialogComponent } from './payment-request-dialog.component';
 import { PartnershipDeactivationDialogComponent } from './partnership-deactivation-dialog.component';
 import { TestDialogComponent } from './test-dialog.component';
+import { ApprovalDialogComponent } from './approval-dialog.component';
+import { RejectionDialogComponent } from './rejection-dialog.component';
 
 @Component({
   selector: 'app-application-detail',
@@ -48,11 +50,18 @@ import { TestDialogComponent } from './test-dialog.component';
         </button>
         <h1>Application Details</h1>
         <div class="header-actions">
+          <!-- Approve/Reject Actions for Reviewable Applications -->
           <button mat-raised-button color="primary"
                   *ngIf="application && canReview(application)"
-                  (click)="reviewApplication()">
-            <mat-icon>rate_review</mat-icon>
-            Review Application
+                  (click)="approveApplication()">
+            <mat-icon>check</mat-icon>
+            Approve Application
+          </button>
+          <button mat-raised-button color="warn"
+                  *ngIf="application && canReview(application)"
+                  (click)="rejectApplication()">
+            <mat-icon>close</mat-icon>
+            Reject Application
           </button>
           <button mat-raised-button color="accent"
                   *ngIf="application && application.status === 'APPROVED'"
@@ -613,11 +622,12 @@ export class ApplicationDetailComponent implements OnInit {
     this.router.navigate(['/business/applications']);
   }
 
-  reviewApplication() {
-    if (this.application) {
-      this.router.navigate(['/business/applications', this.application.id, 'review']);
-    }
-  }
+  // Deprecated: Review functionality replaced with direct approve/reject actions
+  // reviewApplication() {
+  //   if (this.application) {
+  //     this.router.navigate(['/business/applications', this.application.id, 'review']);
+  //   }
+  // }
 
   viewTimeline() {
     if (this.application) {
@@ -626,8 +636,52 @@ export class ApplicationDetailComponent implements OnInit {
   }
 
   canReview(application: FranchiseApplication): boolean {
-    return application.status === ApplicationStatus.SUBMITTED || 
+    return application.status === ApplicationStatus.SUBMITTED ||
            application.status === ApplicationStatus.UNDER_REVIEW;
+  }
+
+  approveApplication() {
+    if (!this.application) return;
+
+    const dialogRef = this.dialog.open(ApprovalDialogComponent, {
+      width: '500px',
+      data: {
+        applicationId: this.application.id,
+        applicantName: `${this.application.personalInfo.firstName} ${this.application.personalInfo.lastName}`,
+        franchiseName: this.application.franchiseName
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('✅ Application approved with notes:', result.notes);
+        this.snackBar.open('Application approved successfully!', 'Close', { duration: 3000 });
+        // Refresh the application data
+        this.loadApplication(this.application!.id);
+      }
+    });
+  }
+
+  rejectApplication() {
+    if (!this.application) return;
+
+    const dialogRef = this.dialog.open(RejectionDialogComponent, {
+      width: '500px',
+      data: {
+        applicationId: this.application.id,
+        applicantName: `${this.application.personalInfo.firstName} ${this.application.personalInfo.lastName}`,
+        franchiseName: this.application.franchiseName
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        console.log('❌ Application rejected with reason:', result.reason);
+        this.snackBar.open('Application rejected successfully!', 'Close', { duration: 3000 });
+        // Refresh the application data
+        this.loadApplication(this.application!.id);
+      }
+    });
   }
 
   getStatusClass(status: ApplicationStatus): string {
