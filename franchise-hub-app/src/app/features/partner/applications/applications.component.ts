@@ -919,7 +919,12 @@ export class ApplicationsComponent implements OnInit {
 
   getCompletedPaymentTransactionsCount(applicationId: string): number {
     const transactions = this.getPaymentTransactionsForApplication(applicationId);
-    return transactions.filter(pt => pt.status === PaymentStatus.COMPLETED).length;
+    // Handle both frontend enum values and backend string values
+    return transactions.filter(pt =>
+      pt.status === PaymentStatus.COMPLETED ||
+      (pt.status as any) === 'SUCCESS' ||
+      (pt.status as any) === 'COMPLETED'
+    ).length;
   }
 
   openPaymentHistoryDialog(applicationId: string, event: Event): void {
