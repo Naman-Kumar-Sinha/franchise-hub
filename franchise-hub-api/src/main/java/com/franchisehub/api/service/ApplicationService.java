@@ -31,6 +31,7 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final FranchiseRepository franchiseRepository;
     private final UserRepository userRepository;
+    private final UserService userService;
 
     /**
      * Get all applications with pagination
@@ -107,10 +108,20 @@ public class ApplicationService {
 
     /**
      * Get applications for business owner's franchises
+     * @param businessOwnerIdentifier Can be either email or UUID
      */
     @Transactional(readOnly = true)
-    public Page<Application> getApplicationsForBusinessOwner(String businessOwnerId, Pageable pageable) {
-        log.debug("Getting applications for business owner: {} with pagination: {}", businessOwnerId, pageable);
+    public Page<Application> getApplicationsForBusinessOwner(String businessOwnerIdentifier, Pageable pageable) {
+        log.debug("Getting applications for business owner: {} with pagination: {}", businessOwnerIdentifier, pageable);
+
+        // If the identifier looks like an email, resolve it to UUID
+        String businessOwnerId = businessOwnerIdentifier;
+        if (businessOwnerIdentifier.contains("@")) {
+            User user = userService.getUserByEmail(businessOwnerIdentifier);
+            businessOwnerId = user.getId();
+            log.debug("Resolved email {} to UUID {}", businessOwnerIdentifier, businessOwnerId);
+        }
+
         return applicationRepository.findApplicationsForBusinessOwner(businessOwnerId, pageable);
     }
 
@@ -660,5 +671,55 @@ public class ApplicationService {
         newUser.setPreferences(preferences);
 
         return userRepository.save(newUser);
+    }
+
+    /**
+     * Check if the user is the owner of the application (applicant)
+     */
+    @Transactional(readOnly = true)
+    public boolean isApplicationOwner(String applicationId, String userEmail) {
+        log.debug("Checking if user {} is owner of application {}", userEmail, applicationId);
+
+        try {
+            Application application = getApplicationById(applicationId);
+
+            // Resolve email to UUID if needed
+            User user = userService.getUserByEmail(userEmail);
+
+            boolean isOwner = application.getApplicantId().equals(user.getId());
+            log.debug("User {} is owner of application {}: {}", userEmail, applicationId, isOwner);
+            return isOwner;
+        } catch (Exception e) {
+            log.warn("Error checking application ownership for user {} and application {}: {}",
+                    userEmail, applicationId, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Check if the user is the business owner of the franchise that the application is for
+     */
+    @Transactional(readOnly = true)
+    public boolean isApplicationBusinessOwner(String applicationId, String userEmail) {
+        log.debug("Checking if user {} is business owner for application {}", userEmail, applicationId);
+
+        try {
+            Application application = getApplicationById(applicationId);
+
+            // Get the franchise for this application
+            Franchise franchise = franchiseRepository.findById(application.getFranchiseId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Franchise not found"));
+
+            // Resolve email to UUID if needed
+            User user = userService.getUserByEmail(userEmail);
+
+            boolean isBusinessOwner = franchise.getBusinessOwnerId().equals(user.getId());
+            log.debug("User {} is business owner for application {}: {}", userEmail, applicationId, isBusinessOwner);
+            return isBusinessOwner;
+        } catch (Exception e) {
+            log.warn("Error checking business ownership for user {} and application {}: {}",
+                    userEmail, applicationId, e.getMessage());
+            return false;
+        }
     }
 }

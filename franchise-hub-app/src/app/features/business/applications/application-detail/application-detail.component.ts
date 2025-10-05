@@ -13,6 +13,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatMenuModule } from '@angular/material/menu';
+import { ApplicationService } from '../../../../core/services/application.service';
+import { PaymentService } from '../../../../core/services/payment.service';
 import { MockDataService } from '../../../../core/services/mock-data.service';
 import { CurrencyService } from '../../../../core/services/currency.service';
 import { FranchiseApplication, ApplicationStatus, PaymentStatus, PaymentRequest, PaymentRequestStatus } from '../../../../core/models/application.model';
@@ -567,6 +569,8 @@ import { TestDialogComponent } from './test-dialog.component';
 export class ApplicationDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private applicationService = inject(ApplicationService);
+  private paymentService = inject(PaymentService);
   private mockDataService = inject(MockDataService);
   private currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
@@ -590,13 +594,15 @@ export class ApplicationDetailComponent implements OnInit {
   }
 
   private loadApplication(applicationId: string) {
-    this.mockDataService.getApplicationById(applicationId).subscribe({
+    console.log('🔍 Loading application details for ID:', applicationId);
+    this.applicationService.getApplicationById(applicationId).subscribe({
       next: (application) => {
+        console.log('✅ Application loaded successfully:', application);
         this.application = application;
         this.isLoading = false;
       },
       error: (error) => {
-        console.error('Error loading application:', error);
+        console.error('❌ Error loading application:', error);
         this.snackBar.open('Error loading application details', 'Close', { duration: 3000 });
         this.isLoading = false;
       }
@@ -711,12 +717,14 @@ export class ApplicationDetailComponent implements OnInit {
 
   // Payment Request Methods
   private loadPaymentRequests(applicationId: string) {
-    this.mockDataService.getPaymentRequestsForApplication(applicationId).subscribe({
+    console.log('💰 Loading payment requests for application:', applicationId);
+    this.paymentService.getPaymentRequestsForApplication(applicationId).subscribe({
       next: (requests) => {
+        console.log('✅ Payment requests loaded:', requests);
         this.paymentRequests = requests;
       },
       error: (error) => {
-        console.error('Error loading payment requests:', error);
+        console.error('❌ Error loading payment requests:', error);
         this.paymentRequests = [];
       }
     });

@@ -123,47 +123,47 @@ export class ApiApplicationService {
     }
 
     return this.http.get<ApiApplication[]>(this.baseUrl, { params }).pipe(
-      map(apiApplications => apiApplications.map(this.mapApiApplicationToApplication))
+      map(apiApplications => apiApplications.map(apiApp => this.mapApiApplicationToApplication(apiApp)))
     );
   }
 
   getApplicationById(id: string): Observable<Application> {
     return this.http.get<ApiApplication>(`${this.baseUrl}/${id}`).pipe(
-      map(this.mapApiApplicationToApplication)
+      map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
   createApplication(applicationData: ApplicationCreateData): Observable<Application> {
     const apiData = this.mapApplicationCreateDataToApi(applicationData);
     return this.http.post<ApiApplication>(this.baseUrl, apiData).pipe(
-      map(this.mapApiApplicationToApplication)
+      map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
   updateApplication(id: string, applicationData: Partial<ApplicationCreateData>): Observable<Application> {
     const apiData = this.mapApplicationCreateDataToApi(applicationData);
     return this.http.put<ApiApplication>(`${this.baseUrl}/${id}`, apiData).pipe(
-      map(this.mapApiApplicationToApplication)
+      map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
   reviewApplication(id: string, reviewData: ApplicationReviewData): Observable<Application> {
     return this.http.put<ApiApplication>(`${this.baseUrl}/${id}/review`, reviewData).pipe(
-      map(this.mapApiApplicationToApplication)
+      map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
   approveApplication(id: string, notes?: string): Observable<Application> {
     const data = { status: 'APPROVED', reviewNotes: notes };
     return this.http.put<ApiApplication>(`${this.baseUrl}/${id}/approve`, data).pipe(
-      map(this.mapApiApplicationToApplication)
+      map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
   rejectApplication(id: string, reason: string, notes?: string): Observable<Application> {
     const data = { status: 'REJECTED', rejectionReason: reason, reviewNotes: notes };
     return this.http.put<ApiApplication>(`${this.baseUrl}/${id}/reject`, data).pipe(
-      map(this.mapApiApplicationToApplication)
+      map(apiApplication => this.mapApiApplicationToApplication(apiApplication))
     );
   }
 
@@ -204,7 +204,24 @@ export class ApiApplicationService {
   getApplicationsByFranchise(franchiseId: string): Observable<Application[]> {
     const params = new HttpParams().set('franchiseId', franchiseId);
     return this.http.get<ApiApplication[]>(this.baseUrl, { params }).pipe(
-      map(apiApplications => apiApplications.map(this.mapApiApplicationToApplication))
+      map(apiApplications => apiApplications.map(apiApp => this.mapApiApplicationToApplication(apiApp)))
+    );
+  }
+
+  getApplicationsForBusinessOwner(businessOwnerId: string): Observable<Application[]> {
+    const url = `${environment.apiUrl}/applications/business-owner/${businessOwnerId}`;
+    console.log('🌐 API Service - Making request to business owner endpoint:', url);
+    return this.http.get<ApiPagedResponse<ApiApplication>>(url).pipe(
+      map(response => {
+        console.log('🌐 API Service - Business owner applications response:', response);
+        console.log('🌐 API Service - Content array length:', response.content?.length || 0);
+        if (response.content && response.content.length > 0) {
+          console.log('🌐 API Service - First application raw data:', response.content[0]);
+        }
+        const mappedApplications = response.content.map(this.mapApiApplicationToApplication.bind(this));
+        console.log('🌐 API Service - Mapped business applications:', mappedApplications.length, mappedApplications);
+        return mappedApplications;
+      })
     );
   }
 

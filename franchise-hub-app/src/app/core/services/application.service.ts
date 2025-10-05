@@ -244,8 +244,8 @@ export class ApplicationService {
     if (this.shouldUseMockService()) {
       return this.mockDataService.getApplicationsForBusiness(businessId);
     } else {
-      // For API, we'll use the general getApplications with filters
-      return this.apiApplicationService.getApplications({ businessId }).pipe(
+      // For API, use the specific business owner endpoint
+      return this.apiApplicationService.getApplicationsForBusinessOwner(businessId).pipe(
         catchError(error => this.handleApiError(error, () => this.mockDataService.getApplicationsForBusiness(businessId)))
       );
     }

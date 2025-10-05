@@ -10,6 +10,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { ApplicationService } from '../../../core/services/application.service';
 import { MockDataService } from '../../../core/services/mock-data.service';
 import { ApiBusinessService } from '../../../core/services/api-business.service';
 import { CurrencyService } from '../../../core/services/currency.service';
@@ -613,6 +614,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   constructor(
     private authService: AuthService,
+    private applicationService: ApplicationService,
     private mockDataService: MockDataService,
     private apiBusinessService: ApiBusinessService,
     private currencyService: CurrencyService,
@@ -637,7 +639,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (user) {
         this.loadStats(user.id);
         this.loadMyFranchises(user.id);
-        this.loadPendingApplications(user.id);
+        this.loadPendingApplications(user.email); // Use email for API consistency
         this.loadRecentTransactions(user.id);
         this.loadChartData(user.id);
       }
@@ -736,12 +738,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private loadPendingApplications(businessOwnerId: string) {
-    // Use the proper service method to get applications for this business
-    this.mockDataService.getApplicationsForBusiness(businessOwnerId).subscribe(applications => {
-      this.pendingApplications = applications
-        .filter(app => app.status === ApplicationStatus.SUBMITTED || app.status === ApplicationStatus.UNDER_REVIEW)
-        .slice(0, 3); // Show only first 3
+  private loadPendingApplications(businessOwnerIdentifier: string) {
+    // Use the proper service method to get applications for this business (handles both mock and real API)
+    this.applicationService.getApplicationsForBusiness(businessOwnerIdentifier).subscribe({
+      next: (applications) => {
+        this.pendingApplications = applications
+          .filter(app => app.status === ApplicationStatus.SUBMITTED || app.status === ApplicationStatus.UNDER_REVIEW)
+          .slice(0, 3); // Show only first 3
+        console.log('Dashboard - Loaded pending applications:', this.pendingApplications);
+      },
+      error: (error) => {
+        console.error('Dashboard - Error loading pending applications:', error);
+        this.pendingApplications = []; // Clear on error
+      }
     });
   }
 

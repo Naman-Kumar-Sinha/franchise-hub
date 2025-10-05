@@ -276,23 +276,41 @@ public class PaymentService {
     }
 
     /**
-     * Get payment requests by application ID (for application owner)
+     * Get payment requests by application ID (for application owner or business owner)
      */
     @Transactional(readOnly = true)
     public Page<PaymentRequest> getPaymentRequestsByApplication(String applicationId, String userEmail, Pageable pageable) {
         log.debug("Getting payment requests for application: {} by user: {}", applicationId, userEmail);
 
-        // Validate application exists and user owns it
+        // Validate application exists
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Application not found with ID: " + applicationId));
 
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + userEmail));
 
-        // Verify user owns the application
-        if (!application.getApplicantId().equals(user.getId())) {
-            throw new BadRequestException("You can only view payment requests for your own applications");
+        // Check if user is the application owner (applicant)
+        boolean isApplicationOwner = application.getApplicantId().equals(user.getId());
+
+        // Check if user is the business owner of the franchise
+        boolean isBusinessOwner = false;
+        if (!isApplicationOwner) {
+            try {
+                Franchise franchise = franchiseRepository.findById(application.getFranchiseId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Franchise not found"));
+                isBusinessOwner = franchise.getBusinessOwnerId().equals(user.getId());
+            } catch (Exception e) {
+                log.warn("Error checking business ownership: {}", e.getMessage());
+            }
         }
+
+        // Verify user has permission (either application owner or business owner)
+        if (!isApplicationOwner && !isBusinessOwner) {
+            throw new BadRequestException("You can only view payment requests for your own applications or applications on your franchises");
+        }
+
+        log.debug("User {} has permission to view payment requests for application {} (isApplicationOwner: {}, isBusinessOwner: {})",
+                userEmail, applicationId, isApplicationOwner, isBusinessOwner);
 
         return paymentRequestRepository.findByApplicationId(applicationId, pageable);
     }

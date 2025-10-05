@@ -569,7 +569,8 @@ export class ApplicationsComponent implements OnInit {
       return;
     }
 
-    this.applicationService.getApplicationsForBusiness(currentUser.id).subscribe({
+    // Use email for business owner endpoint authorization
+    this.applicationService.getApplicationsForBusiness(currentUser.email).subscribe({
       next: (applications) => {
         this.applications = applications;
         this.filteredApplications = applications;

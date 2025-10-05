@@ -179,10 +179,18 @@ export class ApiPaymentService {
   getPaymentRequestsForApplication(applicationId: string): Observable<PaymentRequest[]> {
     const url = `${environment.apiUrl}${environment.endpoints.payments.requests}`;
     const params = { applicationId };
-    
-    return this.http.get<ApiPaymentRequest[]>(url, { params }).pipe(
-      map(apiRequests => apiRequests.map(r => this.mapApiRequestToRequest(r))),
-      catchError(this.handleError)
+
+    return this.http.get<{content: ApiPaymentRequest[]}>(url, { params }).pipe(
+      map(response => {
+        console.log('💰 Payment requests API response:', response);
+        // Handle paginated response - extract content array
+        const apiRequests = response.content || [];
+        return apiRequests.map(r => this.mapApiRequestToRequest(r));
+      }),
+      catchError(error => {
+        console.error('API Payment Error:', error);
+        return this.handleError(error);
+      })
     );
   }
 
