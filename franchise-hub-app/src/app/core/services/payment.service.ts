@@ -121,9 +121,9 @@ export class PaymentService {
   }
 
   createPaymentRequest(
-    applicationId: string, 
-    amount: number, 
-    purpose: string, 
+    applicationId: string,
+    amount: number,
+    purpose: string,
     description?: string
   ): Observable<PaymentRequest> {
     if (this.shouldUseMockService()) {
@@ -136,9 +136,41 @@ export class PaymentService {
         description,
         status: PaymentRequestStatus.PENDING
       };
-      
+
       return this.apiPaymentService.createPaymentRequest(requestData).pipe(
-        catchError(error => this.handleApiError(error, () => 
+        catchError(error => this.handleApiError(error, () =>
+          this.mockDataService.createPaymentRequest(applicationId, amount, purpose, description)
+        ))
+      );
+    }
+  }
+
+  createPaymentRequestWithDetails(
+    applicationId: string,
+    franchiseId: string,
+    businessOwnerId: string,
+    partnerId: string,
+    amount: number,
+    purpose: string,
+    description?: string
+  ): Observable<PaymentRequest> {
+    if (this.shouldUseMockService()) {
+      return this.mockDataService.createPaymentRequest(applicationId, amount, purpose, description);
+    } else {
+      const requestData: Partial<PaymentRequest> = {
+        applicationId,
+        franchiseId,
+        businessOwnerId,
+        partnerId,
+        amount,
+        purpose,
+        description,
+        currency: 'INR',
+        status: PaymentRequestStatus.PENDING
+      };
+
+      return this.apiPaymentService.createPaymentRequest(requestData).pipe(
+        catchError(error => this.handleApiError(error, () =>
           this.mockDataService.createPaymentRequest(applicationId, amount, purpose, description)
         ))
       );

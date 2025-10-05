@@ -382,6 +382,7 @@ public class PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Franchise not found with ID: " + paymentRequest.getFranchiseId()));
 
         // Set payment request details
+        paymentRequest.setId(java.util.UUID.randomUUID().toString());
         paymentRequest.setFromUserId(fromUserId);
         paymentRequest.setCreatedAt(LocalDateTime.now());
         paymentRequest.setUpdatedAt(LocalDateTime.now());

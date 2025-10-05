@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MockDataService } from '../../../../core/services/mock-data.service';
+import { PaymentService } from '../../../../core/services/payment.service';
 import { CurrencyService } from '../../../../core/services/currency.service';
 import { FranchiseApplication, PaymentRequest, PaymentRequestStatus } from '../../../../core/models/application.model';
 
@@ -59,8 +59,9 @@ export interface PaymentRequestDialogData {
 
     <mat-dialog-actions align="end">
       <button mat-button (click)="onCancel()">Cancel</button>
-      <button mat-raised-button color="primary" (click)="onSubmit()">
-        Send Request
+      <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="isSubmitting">
+        <mat-icon *ngIf="isSubmitting">hourglass_empty</mat-icon>
+        {{ isSubmitting ? 'Sending...' : 'Send Request' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -156,7 +157,7 @@ export interface PaymentRequestDialogData {
 })
 export class PaymentRequestDialogComponent {
   private fb = inject(FormBuilder);
-  private mockDataService = inject(MockDataService);
+  private paymentService = inject(PaymentService);
   private currencyService = inject(CurrencyService);
   private snackBar = inject(MatSnackBar);
 
@@ -188,9 +189,14 @@ export class PaymentRequestDialogComponent {
       const formValue = this.paymentForm.value;
       console.log('💰 Form is valid:', formValue);
 
-      // Call the service to create the payment request
-      this.mockDataService.createPaymentRequest(
+      this.isSubmitting = true;
+
+      // Call the real PaymentService to create the payment request with all required details
+      this.paymentService.createPaymentRequestWithDetails(
         this.data.application.id,
+        this.data.application.franchiseId,
+        this.data.application.businessOwnerId,
+        this.data.application.partnerId,
         formValue.amount,
         formValue.purpose,
         formValue.description
@@ -198,11 +204,13 @@ export class PaymentRequestDialogComponent {
         next: (paymentRequest) => {
           console.log('💰 Payment request created successfully:', paymentRequest);
           this.snackBar.open('Payment request sent successfully!', 'Close', { duration: 3000 });
+          this.isSubmitting = false;
           this.dialogRef.close(paymentRequest);
         },
         error: (error) => {
           console.error('💰 Error creating payment request:', error);
           this.snackBar.open('Error creating payment request. Please try again.', 'Close', { duration: 3000 });
+          this.isSubmitting = false;
         }
       });
     } else {

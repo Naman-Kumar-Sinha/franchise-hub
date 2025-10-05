@@ -273,18 +273,16 @@ export class ApiPaymentService {
 
   private mapRequestToApiRequest(request: Partial<PaymentRequest>): Partial<ApiPaymentRequest> {
     return {
-      fromUserId: request.businessOwnerId!,
-      toUserId: request.partnerId!,
+      toUserId: request.partnerId!, // The recipient (partner/applicant)
       franchiseId: request.franchiseId!,
       applicationId: request.applicationId,
       title: request.purpose!,
-      description: request.description,
+      description: request.description || request.purpose!,
       amount: request.amount!,
       currency: request.currency || 'INR',
-      type: 'FRANCHISE_FEE',
-      status: request.status!,
-      dueDate: request.dueDate?.toISOString(),
-      notes: request.description
+      type: 'FRANCHISE_FEE'
+      // fromUserId is set automatically by backend based on authenticated user
+      // status, dueDate, notes are optional and set by backend
     };
   }
 

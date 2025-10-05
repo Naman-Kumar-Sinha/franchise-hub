@@ -308,11 +308,14 @@ public class PaymentController {
             @Valid @RequestBody PaymentDto.CreatePaymentRequestRequest request,
             Authentication authentication) {
         log.info("Creating payment request by user: {}", authentication.getName());
-        
+
+        // Get user ID from email
+        User currentUser = userService.getUserByEmail(authentication.getName());
+
         // Convert DTO to entity
         PaymentRequest paymentRequest = mapToPaymentRequest(request);
-        
-        PaymentRequest createdRequest = paymentService.createPaymentRequest(paymentRequest, authentication.getName());
+
+        PaymentRequest createdRequest = paymentService.createPaymentRequest(paymentRequest, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(createdRequest);
     }
 
